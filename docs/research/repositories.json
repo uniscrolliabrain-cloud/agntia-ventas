@@ -1,0 +1,66 @@
+{
+  "observed_on": "2026-11-13",
+  "reference_is_production_pin": false,
+  "repositories": [
+    {
+      "repository": "twentyhq/twenty",
+      "reference_sha": "f92e6d41312f3d026ef0edac532c2c6c741f28b8",
+      "branch": "main",
+      "metadata_license": "NOASSERTION",
+      "read_path": "README.md",
+      "read_blob_sha": "4ae7858d549ee44177ca4f23d3a3ce357c2cd541",
+      "scope": "Metadata and first90–100 README lines; not code audit/install/runtime verification",
+      "license_review": {
+        "path": "LICENSE",
+        "blob_sha": "7f79939e3b656404b49a480db698955b93c7cf37",
+        "scope": "Selective source/license read, no complete dependencies/models/edition legal review"
+      },
+      "runtime_verified": false
+    },
+    {
+      "repository": "frappe/crm",
+      "reference_sha": "73ec05a1712909ea2ad0e631e088baa5fa3ea4a5",
+      "branch": "develop",
+      "metadata_license": "AGPL-3.0",
+      "read_path": "README.md",
+      "read_blob_sha": "f91b06564405389aadfd40fc73dbc12825120d1d",
+      "scope": "Metadata and first90–100 README lines; not code audit/install/runtime verification",
+      "license_review": null,
+      "runtime_verified": false
+    },
+    {
+      "repository": "espocrm/espocrm",
+      "reference_sha": "aa8afc2dcab1d173d36ef7a2e27581d7d8f6712d",
+      "branch": "master",
+      "metadata_license": "AGPL-3.0",
+      "read_path": "README.md",
+      "read_blob_sha": "62e9141a2e1cea7a15cb57e67bca8168531f54f9",
+      "scope": "Metadata and first90–100 README lines; not code audit/install/runtime verification",
+      "license_review": null,
+      "runtime_verified": false
+    },
+    {
+      "repository": "SuiteCRM/SuiteCRM",
+      "reference_sha": "be6191927d643872942a364bc5877493a6ae25a2",
+      "branch": "hotfix",
+      "metadata_license": "AGPL-3.0",
+      "read_path": "README.md",
+      "read_blob_sha": "815d441ed2e36381313d54ca4287657d92c4703d",
+      "scope": "Metadata and first90–100 README lines; not code audit/install/runtime verification",
+      "license_review": null,
+      "runtime_verified": false
+    },
+    {
+      "repository": "documenso/documenso",
+      "reference_sha": "1e2333d534e151578ffb05394428e2a7efea5f50",
+      "branch": "main",
+      "metadata_license": "AGPL-3.0",
+      "read_path": "README.md",
+      "read_blob_sha": "397a76f4ca44d7778d5f8bd2a208c75ff941fef7",
+      "scope": "Metadata and first90–100 README lines; not code audit/install/runtime verification",
+      "license_review": null,
+      "runtime_verified": false
+    }
+  ],
+  "license_notes": "Twenty requiere revisar AGPL/excepción de interfaces/archivos Enterprise y paquetes MIT. Frappe CRM/EspoCRM/SuiteCRM son candidatos AGPL según metadatos; módulos, distribución y APIs se verifican individualmente. Documenso es puerto de firma optativo, no permiso de firmar ni equivalencia universal de firma electrónica."
+}

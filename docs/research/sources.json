@@ -1,0 +1,226 @@
+{
+  "observed_on": "2026-11-13",
+  "method": "Selective primary-source abstracts/official docs/vendor announcements and pinned repository metadata/README/license reads; no runtime or benchmarks",
+  "sources": [
+    {
+      "id": "H01",
+      "type": "parent_code",
+      "title": "agente: contratos inspeccionados por SHA",
+      "url": "https://github.com/uniscrolliabrain-cloud/agente/tree/54b8d5407a8576459448c4d059a877297d18ca7a",
+      "observed_on": "2026-11-13",
+      "scope": "Mapa heredado de31archivos más6nuevas lecturas selectivas. Main cotejado13noviembre; no auditoría exhaustiva, tests o cambios.",
+      "access_status": "OBSERVED_CODE",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "P01",
+      "type": "paper",
+      "title": "Selling in the Wild",
+      "url": "https://arxiv.org/abs/2610.25461",
+      "observed_on": "2026-11-13",
+      "scope": "Abstract/versiones disponibles consultados, no reproducción; inferencia de diseño: Preprint de proveedor con evaluación simulada y de campo: estudiar protocolo y guardrails, sin trasladar ingresos/tasas al SaaS.",
+      "access_status": "SELECTIVE_READ",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "P02",
+      "type": "paper",
+      "title": "R2A-Sales",
+      "url": "https://arxiv.org/abs/2610.34185",
+      "observed_on": "2026-11-13",
+      "scope": "Abstract/versiones disponibles consultados, no reproducción; inferencia de diseño: Verificar acciones comprometidas y restricciones, no solo que el agente recite políticas. Sus dominios/idioma no prueban cobertura ES/EN/FR.",
+      "access_status": "SELECTIVE_READ",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "P03",
+      "type": "paper",
+      "title": "CRM-Agent-Bench",
+      "url": "https://arxiv.org/abs/2610.32004",
+      "observed_on": "2026-11-13",
+      "scope": "Abstract/versiones disponibles consultados, no reproducción; inferencia de diseño: Contratos sobre trayectoria, estado objetivo y estado protegido; fixtures originales sin copiar datos.",
+      "access_status": "SELECTIVE_READ",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "V01",
+      "type": "vendor_primary",
+      "title": "HubSpot prospecting",
+      "url": "https://knowledge.hubspot.com/prospecting/use-the-prospecting-agent",
+      "observed_on": "2026-11-13",
+      "scope": "Planificación/revisión de prospección y fuentes; verificar scopes, créditos y sandbox antes de integrarlo. Fuente comercial/regulatoria selectiva, no prueba de producto; no heredar certificaciones/precios.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "V02",
+      "type": "vendor_primary",
+      "title": "Salesforce Sales",
+      "url": "https://www.salesforce.com/sales/ai-sales-agent/",
+      "observed_on": "2026-11-13",
+      "scope": "Contexto CRM y acciones de negocio; no se declara plan/API habilitado por esta lectura. Fuente comercial/regulatoria selectiva, no prueba de producto; no heredar certificaciones/precios.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "V03",
+      "type": "vendor_primary",
+      "title": "Gong",
+      "url": "https://www.gong.io/platform/",
+      "observed_on": "2026-11-13",
+      "scope": "Patrón de pipeline/forecast y actividad; URL inicial de agentes no accesible, página platform consultada. Fuente comercial/regulatoria selectiva, no prueba de producto; no heredar certificaciones/precios.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "S01",
+      "type": "security_or_law_primary",
+      "title": "Supabase JWT",
+      "url": "https://supabase.com/docs/guides/auth/jwts",
+      "observed_on": "2026-11-13",
+      "scope": "Verificación/claims/JWKS; sin tokens de usuarios reales.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "S02",
+      "type": "security_or_law_primary",
+      "title": "Supabase RLS",
+      "url": "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "observed_on": "2026-11-13",
+      "scope": "Scope de SQL y user_metadata editable; sin DB configurada.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "N01",
+      "type": "security_or_law_primary",
+      "title": "Anam overview",
+      "url": "https://anam.ai/docs/introduction/overview",
+      "observed_on": "2026-11-13",
+      "scope": "Presencia para agente existente y pipeline; sin sesión/plan/API test.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "L01",
+      "type": "security_or_law_primary",
+      "title": "RGPD",
+      "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+      "observed_on": "2026-11-13",
+      "scope": "Consulta selectiva, no dictamen universal.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "L02",
+      "type": "security_or_law_primary",
+      "title": "AI Act",
+      "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+      "observed_on": "2026-11-13",
+      "scope": "Uso/rol/fechas/clasificación a revalidar para implementación.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "L03",
+      "type": "security_or_law_primary",
+      "title": "LSSI",
+      "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2002-13758",
+      "observed_on": "2026-11-13",
+      "scope": "Comunicaciones/propósito y oposición según caso, revisión humana.",
+      "access_status": "DOCUMENTED_NOT_TESTED",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "D01",
+      "type": "domain_primary",
+      "title": "LSSI",
+      "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2002-13758",
+      "observed_on": "2026-11-13",
+      "scope": "Finalidad comercial y oposición, revisión contextual; no todo lead permite outreach.",
+      "access_status": "SELECTIVE_READ",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "D02",
+      "type": "domain_primary",
+      "title": "eIDAS",
+      "url": "https://eur-lex.europa.eu/eli/reg/2014/910/oj",
+      "observed_on": "2026-11-13",
+      "scope": "Tipos de firma y contexto deben revisarse; API de firma no prueba representación o requisitos del acto.",
+      "access_status": "SELECTIVE_READ",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "R01",
+      "type": "repository",
+      "title": "twentyhq/twenty",
+      "url": "https://github.com/twentyhq/twenty/tree/f92e6d41312f3d026ef0edac532c2c6c741f28b8",
+      "observed_on": "2026-11-13",
+      "scope": "Metadatos y README selectivos por SHA; ver repositories.json; rama por defecto no es release aprobada.",
+      "access_status": "OBSERVED_REPOSITORY",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "R02",
+      "type": "repository",
+      "title": "frappe/crm",
+      "url": "https://github.com/frappe/crm/tree/73ec05a1712909ea2ad0e631e088baa5fa3ea4a5",
+      "observed_on": "2026-11-13",
+      "scope": "Metadatos y README selectivos por SHA; ver repositories.json; rama por defecto no es release aprobada.",
+      "access_status": "OBSERVED_REPOSITORY",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "R03",
+      "type": "repository",
+      "title": "espocrm/espocrm",
+      "url": "https://github.com/espocrm/espocrm/tree/aa8afc2dcab1d173d36ef7a2e27581d7d8f6712d",
+      "observed_on": "2026-11-13",
+      "scope": "Metadatos y README selectivos por SHA; ver repositories.json; rama por defecto no es release aprobada.",
+      "access_status": "OBSERVED_REPOSITORY",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "R04",
+      "type": "repository",
+      "title": "SuiteCRM/SuiteCRM",
+      "url": "https://github.com/SuiteCRM/SuiteCRM/tree/be6191927d643872942a364bc5877493a6ae25a2",
+      "observed_on": "2026-11-13",
+      "scope": "Metadatos y README selectivos por SHA; ver repositories.json; rama por defecto no es release aprobada.",
+      "access_status": "OBSERVED_REPOSITORY",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    },
+    {
+      "id": "R05",
+      "type": "repository",
+      "title": "documenso/documenso",
+      "url": "https://github.com/documenso/documenso/tree/1e2333d534e151578ffb05394428e2a7efea5f50",
+      "observed_on": "2026-11-13",
+      "scope": "Metadatos y README selectivos por SHA; ver repositories.json; rama por defecto no es release aprobada.",
+      "access_status": "OBSERVED_REPOSITORY",
+      "runtime_verified": false,
+      "benchmark_reproduced": false
+    }
+  ]
+}

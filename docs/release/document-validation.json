@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-11-13",
+  "status": "PASS",
+  "scope": "Documentation only: JSON syntax, local links, campaign/task/gate text consistency, IDs/dependency DAG, sources/metadata SHAs and sentinel patterns. No product tests.",
+  "files_verified": 69,
+  "campaigns": 42,
+  "tasks": 294,
+  "planned_gate_scenarios": 84,
+  "implementation_tests_executed": 0,
+  "provider_api_tests_executed": 0,
+  "runtime_implemented": false,
+  "papers_selectively_read": 3,
+  "repositories_selectively_read": 5,
+  "source_records": 20,
+  "parent_files_selectively_read": 37,
+  "parent_modified": false,
+  "parent_sha": "54b8d5407a8576459448c4d059a877297d18ca7a",
+  "markdown_words": 57886,
+  "campaign_manifest_sha256": "171f721eeab726e866283f12f3fa77dfce387cdc34c8ecc5518a67a5e06b5c83",
+  "external_link_live_validation": "Selected sources browsed; not exhaustive link validation. Failed/limited access recorded in sources."
+}
