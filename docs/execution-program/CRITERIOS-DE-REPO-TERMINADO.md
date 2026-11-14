@@ -1,0 +1,3 @@
+# Definición de terminado — Ventas
+
+42 campañas implementadas con reportes de fase y 294 tareas/84 gates clasificados sin PASS ficticio. Hono+SDK+portal+DB+worker ejecutables, migraciones, CI, observabilidad, backups y runbook. Dos tenants sintéticos con RLS, scopes y tests negativos. Vertical lead aceptado→pipeline→pricebook vigente→quote calculada con Decimal→aprobación→envío sink→receipt→handoff ACK reproducible. Sin mensajes comerciales reales, cobros, firmas o descuentos fuera de mandato. Auditoría Codex final y correcciones verificadas, arquitecto y founder aprueban. Despliegue productivo no autorizado por esta documentación.
