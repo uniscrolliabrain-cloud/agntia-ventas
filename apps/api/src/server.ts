@@ -1,9 +1,11 @@
 import { serve } from "@hono/node-server";
+import { Pool } from "pg";
 import { ServiceError } from "@agntia-ventas/contracts";
 import {
   createSupabaseJwtVerifier,
   type MembershipRepository,
 } from "@agntia-ventas/identity";
+import { createPooledMembershipRepository } from "@agntia-ventas/persistence";
 import { createApp } from "./app.ts";
 
 function requireEnv(name: string): string {
@@ -15,19 +17,26 @@ function requireEnv(name: string): string {
 }
 
 /**
- * Membership storage belongs to campaign C06 (persistence, RLS, migrations).
- * Until then every authenticated route fails closed with 424 instead of
- * falling back to an admin/default principal.
+ * Without a database the API still starts, but every authenticated route fails
+ * closed with 424. There is no admin/default principal fallback.
  */
-const memberships: MembershipRepository = {
-  async findMembership() {
-    throw new ServiceError(
-      "DEPENDENCY_UNAVAILABLE",
-      "membership store is not implemented yet (campaign VTA-C06)",
-      { details: { pendingCampaign: "VTA-C06" } },
-    );
-  },
-};
+function createMembershipRepository(): MembershipRepository {
+  const connectionString = process.env["DATABASE_URL"];
+  if (!connectionString) {
+    return {
+      async findMembership() {
+        throw new ServiceError(
+          "DEPENDENCY_UNAVAILABLE",
+          "DATABASE_URL is not configured; membership storage is unavailable",
+          { details: { pendingCampaign: "VTA-C06" } },
+        );
+      },
+    };
+  }
+  return createPooledMembershipRepository(
+    new Pool({ connectionString, max: 5, idleTimeoutMillis: 30_000 }),
+  );
+}
 
 const app = createApp({
   verifyToken: createSupabaseJwtVerifier({
@@ -35,7 +44,7 @@ const app = createApp({
     audience: process.env["SUPABASE_JWT_AUDIENCE"] ?? "authenticated",
     jwksUrl: requireEnv("SUPABASE_JWKS_URL"),
   }),
-  memberships,
+  memberships: createMembershipRepository(),
 });
 
 const port = Number(process.env["PORT"] ?? 8787);
