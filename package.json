@@ -1,0 +1,16 @@
+{
+  "name": "agntia-ventas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agntia Ventas — servicio comercial especialista (implementación de las 42 campañas VTA-C01..C42)",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "check": "pnpm run typecheck && pnpm run test",
+    "dev": "pnpm --filter @agntia-ventas/api run dev"
+  }
+}

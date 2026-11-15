@@ -2,11 +2,25 @@
 
 Ventas y operaciones comerciales: diseño de empresa SaaS especialista con middleware hacia AgntiaPro/`agente`. Entrega documental de la familia Agntia · 2026-11-13.
 
-**DOCUMENTATION_ONLY. No hay aplicación, SDK, proveedores conectados o tests de producto ejecutados. Las 42 campañas están NOT_STARTED; sus pruebas están NOT_EXECUTED.** Aspiración de calidad inspirada en referentes mundiales; no afirmación de paridad, certificación o cumplimiento universal.
+**DOCUMENTATION_ONLY en `main`. No hay aplicación, SDK, proveedores conectados o despliegue. Las 42 campañas están NOT_STARTED en el manifest; el trabajo de implementación vive en ramas de fábrica y no modifica `main` sin aprobación del founder.** Aspiración de calidad inspirada en referentes mundiales; no afirmación de paridad, certificación o cumplimiento universal.
 
 Convertir oportunidades autorizadas en trabajo comercial verificable: CRM, pipeline, reuniones, propuestas y seguimiento, sin convertir presión por vender en permisos de efecto.
 
 Se presta servicio a empresas del padre y a clientes externos mediante portal propio. Agentes canónicos en `/agente`, twins vinculados aquí; todos los modos con JWT Supabase, membresía/ACL verificados y aislamiento de datos/jobs/archivos/búsqueda/Realtime/exportaciones. Se permite duplicación de funciones con repos hermanos; un AuthorityMap por encargo fija responsables para evitar doble efecto. **No se modifica agente.**
+
+## Implementación en curso
+
+La rama `impl/factory-c01-c05` añade el scaffolding ejecutable de las campañas
+C01–C05: contratos Zod estrictos, verificación Supabase JWT con membership
+provisionada, mandatos/twins, dinero Decimal determinista y una API Hono
+nominada que falla cerrado. Evidencia real (comandos, tests, gates y bloqueos)
+en `docs/execution-evidence/`.
+
+```bash
+pnpm install
+pnpm run typecheck
+pnpm run test
+```
 
 ## Leer en orden
 
