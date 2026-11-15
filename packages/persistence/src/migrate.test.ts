@@ -12,18 +12,20 @@ describe("migration runner", () => {
     const client = createPgliteClient(new PGlite());
 
     const first = await runMigrations(client, MIGRATIONS_DIR);
-    expect(first.applied).toEqual(["0001_tenancy_identity"]);
+    expect(first.applied).toEqual(["0001_tenancy_identity", "0002_domain"]);
     expect(first.skipped).toEqual([]);
 
     const recorded = await client.query<{ version: string; checksum: string }>(
-      "select version, checksum from app.schema_migrations",
+      "select version, checksum from app.schema_migrations order by version",
     );
-    expect(recorded.rows).toHaveLength(1);
-    expect(recorded.rows[0]?.checksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(recorded.rows).toHaveLength(2);
+    for (const row of recorded.rows) {
+      expect(row.checksum).toMatch(/^[a-f0-9]{64}$/);
+    }
 
     const second = await runMigrations(client, MIGRATIONS_DIR);
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(["0001_tenancy_identity"]);
+    expect(second.skipped).toEqual(["0001_tenancy_identity", "0002_domain"]);
   });
 
   it("enables and forces RLS on every tenant table", async () => {
@@ -37,13 +39,26 @@ describe("migration runner", () => {
         where n.nspname = 'app' and c.relkind = 'r'
         order by c.relname`,
     );
-    const guarded = tables.rows.filter((row) =>
-      ["memberships", "tenants", "twin_bindings", "delegation_mandates", "work_orders"].includes(
-        row.relname,
-      ),
-    );
+    const tenantTables = [
+      "accounts",
+      "activities",
+      "approvals",
+      "candidates",
+      "contact_channels",
+      "contacts",
+      "delegation_mandates",
+      "handoffs",
+      "memberships",
+      "opportunities",
+      "quotes",
+      "suppressions",
+      "tenants",
+      "twin_bindings",
+      "work_orders",
+    ];
+    const guarded = tables.rows.filter((row) => tenantTables.includes(row.relname));
 
-    expect(guarded).toHaveLength(5);
+    expect(guarded).toHaveLength(tenantTables.length);
     for (const table of guarded) {
       expect(table.relrowsecurity).toBe(true);
       expect(table.relforcerowsecurity).toBe(true);

@@ -26,13 +26,14 @@ exit code, conteo de tests, gates, bloqueos y siguiente dependencia.
 | VTA-C04 | [C04](C04-REPORT.md) | PASS (sin high-level bridge) |
 | VTA-C05 | [C05](C05-REPORT.md) | PASS |
 | VTA-C06 | [C06](C06-REPORT.md) | PASS (Postgres WASM; Supabase real NOT_VERIFIED) |
+| VTA-C07 — C42 | [C07-C42](C07-C42-REPORT.md) | Matriz por campaña: 25 IMPLEMENTED, 4 PARTIAL, 6 STUB, 1 DOCUMENTED |
 
 ## Comandos del proyecto
 
 ```bash
 pnpm install
-pnpm run typecheck     # tsc --noEmit en contracts, domain, identity, persistence y api
-pnpm run test          # vitest en los cinco paquetes (89 pruebas)
+pnpm run typecheck     # tsc --noEmit en contracts, domain, identity, sales, persistence y api
+pnpm run test          # vitest en los seis paquetes (176 pruebas)
 pnpm run dev           # API Hono en :8787 (falla cerrado sin SUPABASE_*)
 ```
 
