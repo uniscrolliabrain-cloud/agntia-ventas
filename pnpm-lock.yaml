@@ -19,6 +19,9 @@ importers:
       '@agntia-ventas/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
+      '@agntia-ventas/sales':
+        specifier: workspace:*
+        version: link:../../packages/sales
       '@hono/node-server':
         specifier: ^1.13.0
         version: 1.19.19(hono@4.13.18)
@@ -28,6 +31,9 @@ importers:
       pg:
         specifier: ^8.13.0
         version: 8.23.1
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.7
     devDependencies:
       '@electric-sql/pglite':
         specifier: ^0.5.0
@@ -144,6 +150,9 @@ importers:
       decimal.js:
         specifier: ^10.4.0
         version: 10.6.0
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

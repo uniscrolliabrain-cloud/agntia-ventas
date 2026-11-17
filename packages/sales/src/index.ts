@@ -1,5 +1,8 @@
 export * from "./adapters.ts";
+export * from "./bridge.ts";
 export * from "./commercial.ts";
+export * from "./costs.ts";
+export * from "./crm.ts";
 export * from "./core.ts";
 export * from "./e2e.ts";
 export * from "./governance.ts";
@@ -7,3 +10,4 @@ export * from "./models.ts";
 export * from "./operations.ts";
 export * from "./outcomes.ts";
 export * from "./pricing.ts";
+export * from "./signature.ts";

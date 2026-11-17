@@ -14,11 +14,11 @@ Historial de la rama: `9d04e72` (C01–C05) → `e57df78` (evidencia) → `73c99
 ```bash
 pnpm install            # exit 0, lockfile pnpm-lock.yaml
 pnpm run typecheck      # exit 0 (contracts, domain, identity, sales, persistence, api)
-pnpm run test           # exit 0, 176 tests / 19 archivos
+pnpm run test           # exit 0, 203 tests / 21 archivos
 ```
 
-Conteo por paquete: contracts 12, domain 13, identity 28, sales 81,
-persistence 22, api 20.
+Conteo por paquete: contracts 12, domain 13, identity 28, sales 95,
+persistence 22, api 33.
 
 La primera ejecución de PGlite en un host frío tarda ~5 s en arrancar el
 Postgres WASM; por eso `persistence` y `api` fijan `testTimeout: 30000` en su
@@ -42,10 +42,14 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   principal), C04 (twins/mandatos), C05 (DTOs, errores, dinero Decimal), C06
   (migraciones, RLS forzada, repositorio tenant-scoped, integración JWT→RLS→API).
 - Bloque C07–C42: matriz completa en [C07-C42-REPORT.md](C07-C42-REPORT.md).
-  25 campañas IMPLEMENTED con pruebas, 4 PARTIAL, 6 STUB que fallan cerrado
-  (CRM, firma, checkout, portal/Anam, bridge, CI/backup) y C42 documental.
-  `db/migrations/0002_domain.sql` añade 10 tablas de dominio con FKs compuestas
-  y RLS forzada, probadas en `domain-rls.test.ts`.
+  25 campañas IMPLEMENTED con pruebas, 9 PARTIAL (CRM, suites CRM, firma,
+  bridge, coste, fuentes, dashboard, SDK y CI), 1 STUB (portal/Anam) y C42
+  documental. `db/migrations/0002_domain.sql` añade 10 tablas de dominio con FKs
+  compuestas y RLS forzada, probadas en `domain-rls.test.ts`.
+- Superficie HTTP: cinco rutas preview autenticadas y con scope en
+  `apps/api/src/routes/commercial.ts`; ninguna persiste, envía ni cobra.
+- `.github/workflows/ci.yml` ejecuta install/typecheck/test, pero **no se ha
+  ejecutado en este host**: no hay runner de GitHub aquí.
 - `PARTIAL`: C01 y C02 (faltan `ServiceAgreement`/`WorkOrder` como DTO y el
   AuthorityMap persistido).
 - Decisión de entorno: al no haber Docker utilizable, las pruebas de base de datos

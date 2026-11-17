@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   MAX_ENVELOPE_BYTES,
@@ -6,44 +6,17 @@ import {
   ServiceError,
   envelopeByteLength,
   toErrorEnvelope,
-  type Principal,
 } from "@agntia-ventas/contracts";
 import {
-  resolvePrincipal,
-  type JwtVerifier,
-  type MembershipRepository,
-} from "@agntia-ventas/identity";
+  authenticate,
+  type AppDependencies,
+  type AppEnvironment,
+} from "./auth.ts";
+import { registerCommercialRoutes } from "./routes/commercial.ts";
 
-export interface AppDependencies {
-  readonly verifyToken: JwtVerifier;
-  readonly memberships: MembershipRepository;
-  readonly correlationIdFactory?: () => string;
-}
-
-interface AppEnvironment {
-  Variables: {
-    correlationId: string;
-  };
-}
-
-type AppContext = Context<AppEnvironment>;
+export type { AppDependencies } from "./auth.ts";
 
 const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
-
-async function authenticate(
-  context: AppContext,
-  dependencies: AppDependencies,
-): Promise<Principal> {
-  const header = context.req.header("authorization") ?? "";
-  const match = /^Bearer\s+(\S+)$/i.exec(header);
-  const token = match?.[1];
-  if (!token) {
-    throw new ServiceError("AUTH_MISSING", "missing bearer token");
-  }
-
-  const claims = await dependencies.verifyToken(token);
-  return resolvePrincipal({ claims, memberships: dependencies.memberships });
-}
 
 /**
  * Named, closed API surface (docs/contracts/01-contratos.md). There is no
@@ -79,6 +52,8 @@ export function createApp(dependencies: AppDependencies): Hono<AppEnvironment> {
    * smuggle another tenant/actor and returns no effect (there is no remote
    * write behind it).
    */
+  registerCommercialRoutes(app, dependencies);
+
   app.post("/v1/ventas/envelopes/validate", async (context) => {
     const principal = await authenticate(context, dependencies);
 

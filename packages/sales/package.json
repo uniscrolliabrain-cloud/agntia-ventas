@@ -13,7 +13,8 @@
   "dependencies": {
     "@agntia-ventas/contracts": "workspace:*",
     "@agntia-ventas/domain": "workspace:*",
-    "decimal.js": "^10.4.0"
+    "decimal.js": "^10.4.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

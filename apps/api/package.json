@@ -13,9 +13,11 @@
     "@agntia-ventas/contracts": "workspace:*",
     "@agntia-ventas/identity": "workspace:*",
     "@agntia-ventas/persistence": "workspace:*",
+    "@agntia-ventas/sales": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "hono": "^4.6.0",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.0",
