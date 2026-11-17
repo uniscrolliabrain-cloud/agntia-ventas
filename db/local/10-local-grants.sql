@@ -20,6 +20,7 @@ grant select, insert on app.suppressions to app_user, app_worker;
 grant select, insert, update on app.opportunities to app_user, app_worker;
 grant select, insert, update on app.activities to app_user, app_worker;
 grant select, insert on app.quotes to app_user, app_worker;
+grant select, insert, update on app.budget_reservations to app_user;
 grant select, insert, update on app.approvals to app_user;
 grant select on app.approvals to app_worker;
 grant select, insert, update on app.handoffs to app_user, app_worker;

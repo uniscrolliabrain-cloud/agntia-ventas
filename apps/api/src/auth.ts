@@ -5,10 +5,15 @@ import {
   type JwtVerifier,
   type MembershipRepository,
 } from "@agntia-ventas/identity";
+import type { CommercialRepository } from "@agntia-ventas/persistence";
 
 export interface AppDependencies {
   readonly verifyToken: JwtVerifier;
   readonly memberships: MembershipRepository;
+  /** Absent in a read-only deployment: persisted routes then answer 424. */
+  readonly commercial?: CommercialRepository;
+  /** Signs expiring read-only portal links; absent disables the portal. */
+  readonly portalSecret?: string;
   readonly correlationIdFactory?: () => string;
 }
 

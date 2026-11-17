@@ -1,5 +1,6 @@
 export * from "./adapters.ts";
 export * from "./bridge.ts";
+export * from "./client.ts";
 export * from "./commercial.ts";
 export * from "./costs.ts";
 export * from "./crm.ts";

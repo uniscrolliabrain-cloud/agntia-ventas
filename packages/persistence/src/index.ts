@@ -1,3 +1,4 @@
+export * from "./commercial-repository.ts";
 export * from "./membership-repository.ts";
 export * from "./migrate.ts";
 export * from "./pg.ts";

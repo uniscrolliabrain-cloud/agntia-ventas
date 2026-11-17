@@ -55,7 +55,7 @@ const PriceBookSchema = z
   })
   .strict();
 
-const QuoteBodySchema = z
+export const QuoteBodySchema = z
   .object({
     priceBook: PriceBookSchema,
     lines: z
@@ -100,7 +100,7 @@ const QuoteBodySchema = z
   })
   .strict();
 
-const ApprovalBodySchema = z
+export const ApprovalBodySchema = z
   .object({
     id: z.string().min(1).max(128),
     resourceRef: z.string().min(1).max(128),
@@ -169,7 +169,7 @@ const ImportBodySchema = z
   })
   .strict();
 
-async function readBody<T>(
+export async function readBody<T>(
   context: AppContext,
   schema: z.ZodType<T>,
 ): Promise<T> {

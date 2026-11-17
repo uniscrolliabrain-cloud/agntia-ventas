@@ -221,6 +221,10 @@ export function assertDiscountWithinMandate(input: {
   }
 }
 
+export function quoteDiscountTotal(quote: QuoteTotals): Money {
+  return addMoney(quote.lineDiscount, quote.orderDiscount);
+}
+
 export function quoteHasNoDiscounts(quote: QuoteTotals): boolean {
   return (
     new Decimal(quote.lineDiscount.amount).isZero() &&

@@ -5,7 +5,10 @@ import {
   createSupabaseJwtVerifier,
   type MembershipRepository,
 } from "@agntia-ventas/identity";
-import { createPooledMembershipRepository } from "@agntia-ventas/persistence";
+import {
+  createPooledCommercialRepository,
+  createPooledMembershipRepository,
+} from "@agntia-ventas/persistence";
 import { createApp } from "./app.ts";
 
 function requireEnv(name: string): string {
@@ -16,13 +19,17 @@ function requireEnv(name: string): string {
   return value;
 }
 
+const connectionString = process.env["DATABASE_URL"];
+const pool = connectionString
+  ? new Pool({ connectionString, max: 5, idleTimeoutMillis: 30_000 })
+  : null;
+
 /**
  * Without a database the API still starts, but every authenticated route fails
  * closed with 424. There is no admin/default principal fallback.
  */
 function createMembershipRepository(): MembershipRepository {
-  const connectionString = process.env["DATABASE_URL"];
-  if (!connectionString) {
+  if (!pool) {
     return {
       async findMembership() {
         throw new ServiceError(
@@ -33,9 +40,7 @@ function createMembershipRepository(): MembershipRepository {
       },
     };
   }
-  return createPooledMembershipRepository(
-    new Pool({ connectionString, max: 5, idleTimeoutMillis: 30_000 }),
-  );
+  return createPooledMembershipRepository(pool);
 }
 
 const app = createApp({
@@ -45,6 +50,7 @@ const app = createApp({
     jwksUrl: requireEnv("SUPABASE_JWKS_URL"),
   }),
   memberships: createMembershipRepository(),
+  ...(pool ? { commercial: createPooledCommercialRepository(pool) } : {}),
 });
 
 const port = Number(process.env["PORT"] ?? 8787);

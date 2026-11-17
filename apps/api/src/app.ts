@@ -13,6 +13,8 @@ import {
   type AppEnvironment,
 } from "./auth.ts";
 import { registerCommercialRoutes } from "./routes/commercial.ts";
+import { registerPersistedRoutes } from "./routes/persisted.ts";
+import { registerPortalRoutes } from "./portal.ts";
 
 export type { AppDependencies } from "./auth.ts";
 
@@ -53,6 +55,8 @@ export function createApp(dependencies: AppDependencies): Hono<AppEnvironment> {
    * write behind it).
    */
   registerCommercialRoutes(app, dependencies);
+  registerPersistedRoutes(app, dependencies);
+  registerPortalRoutes(app, dependencies);
 
   app.post("/v1/ventas/envelopes/validate", async (context) => {
     const principal = await authenticate(context, dependencies);

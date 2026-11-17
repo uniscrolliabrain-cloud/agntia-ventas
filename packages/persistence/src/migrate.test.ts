@@ -12,20 +12,28 @@ describe("migration runner", () => {
     const client = createPgliteClient(new PGlite());
 
     const first = await runMigrations(client, MIGRATIONS_DIR);
-    expect(first.applied).toEqual(["0001_tenancy_identity", "0002_domain"]);
+    expect(first.applied).toEqual([
+      "0001_tenancy_identity",
+      "0002_domain",
+      "0003_operations",
+    ]);
     expect(first.skipped).toEqual([]);
 
     const recorded = await client.query<{ version: string; checksum: string }>(
       "select version, checksum from app.schema_migrations order by version",
     );
-    expect(recorded.rows).toHaveLength(2);
+    expect(recorded.rows).toHaveLength(3);
     for (const row of recorded.rows) {
       expect(row.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
 
     const second = await runMigrations(client, MIGRATIONS_DIR);
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(["0001_tenancy_identity", "0002_domain"]);
+    expect(second.skipped).toEqual([
+      "0001_tenancy_identity",
+      "0002_domain",
+      "0003_operations",
+    ]);
   });
 
   it("enables and forces RLS on every tenant table", async () => {
@@ -42,6 +50,7 @@ describe("migration runner", () => {
     const tenantTables = [
       "accounts",
       "activities",
+      "budget_reservations",
       "approvals",
       "candidates",
       "contact_channels",
