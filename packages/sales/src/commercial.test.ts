@@ -39,6 +39,13 @@ describe("proposal revisions", () => {
       '{"left":{"amount":"10.00"},"right":{"amount":"10.00"}}',
     );
     expect(codeOf(() => stableStringify({ total: 10n }))).toBe("VALIDATION_FAILED");
+    // Both used to serialize as `null`, so two different payloads produced one
+    // sha256 and could share an approval binding.
+    expect(codeOf(() => stableStringify({ total: undefined }))).toBe("VALIDATION_FAILED");
+    expect(codeOf(() => stableStringify({ total: Number.NaN }))).toBe("VALIDATION_FAILED");
+    expect(codeOf(() => stableStringify({ total: Number.POSITIVE_INFINITY }))).toBe(
+      "VALIDATION_FAILED",
+    );
   });
 
   it("refuses a fact without evidence", () => {
@@ -68,7 +75,7 @@ describe("proposal revisions", () => {
 });
 
 describe("meetings", () => {
-  it("is idempotent per operation key", () => {
+  it("is idempotent per operation key and rejects another slot under it", () => {
     const first = proposeMeeting({
       id: "meeting-01",
       operationKey: "op-01",
@@ -76,16 +83,31 @@ describe("meetings", () => {
       timeZone: "Europe/Madrid",
       attendees: ["user-alpha-01"],
     });
-    const second = proposeMeeting({
+    const repeated = proposeMeeting({
       id: "meeting-02",
       operationKey: "op-01",
-      startUtc: "2026-11-20T11:00:00Z",
+      startUtc: "2026-11-20T10:00:00Z",
       timeZone: "Europe/Madrid",
       attendees: ["user-alpha-01"],
       alreadyBooked: [first],
     });
-    expect(second.id).toBe("meeting-01");
-    expect(second.startUtc).toBe("2026-11-20T10:00:00Z");
+    expect(repeated.id).toBe("meeting-01");
+    expect(repeated.startUtc).toBe("2026-11-20T10:00:00Z");
+
+    // The key used to return the 10:00 meeting for an 11:00 request, so the
+    // caller believed a slot was booked that never existed.
+    expect(
+      codeOf(() =>
+        proposeMeeting({
+          id: "meeting-03",
+          operationKey: "op-01",
+          startUtc: "2026-11-20T11:00:00Z",
+          timeZone: "Europe/Madrid",
+          attendees: ["user-alpha-01"],
+          alreadyBooked: [first],
+        }),
+      ),
+    ).toBe("IDEMPOTENCY_CONFLICT");
   });
 
   it("marks a DST-ambiguous slot as uncertain", () => {

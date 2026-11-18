@@ -148,6 +148,7 @@ export interface QuoteTotals {
   readonly subtotal: Money;
   readonly lineDiscount: Money;
   readonly orderDiscount: Money;
+  readonly orderDiscountBasisPoints: number;
   readonly net: Money;
   readonly tax: Money;
   readonly total: Money;

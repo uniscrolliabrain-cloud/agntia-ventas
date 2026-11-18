@@ -56,6 +56,19 @@ export function createApproval(input: {
   if (!input.proofRef) {
     throw new ServiceError("APPROVAL_INVALID", "approval requires a proof reference");
   }
+  // Persisting a negative ceiling or an unreadable expiry produced an approval
+  // the database rejected later as an INTERNAL error, or one that could never
+  // cover a cost. Both are refused before the write.
+  const ceiling = MoneySchema.safeParse(input.costCeiling);
+  if (!ceiling.success) {
+    throw new ServiceError("APPROVAL_INVALID", "approval ceiling is not exact money");
+  }
+  if (new Decimal(ceiling.data.amount).isNegative()) {
+    throw new ServiceError("APPROVAL_INVALID", "approval ceiling cannot be negative");
+  }
+  if (!Number.isFinite(Date.parse(input.expiresAt))) {
+    throw new ServiceError("APPROVAL_INVALID", "approval expiry is unreadable");
+  }
   return { ...input, reviewerId: input.reviewer.id };
 }
 

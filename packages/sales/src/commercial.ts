@@ -21,6 +21,18 @@ export function stableStringify(value: unknown, seen = new WeakSet<object>()): s
         details: { type: typeof value },
       });
     }
+    // `JSON.stringify` turns these into `null`, which made two different
+    // payloads share one hash and therefore one approval binding.
+    if (value === undefined) {
+      throw new ServiceError("VALIDATION_FAILED", "value cannot be hashed as JSON", {
+        details: { type: "undefined" },
+      });
+    }
+    if (typeof value === "number" && !Number.isFinite(value)) {
+      throw new ServiceError("VALIDATION_FAILED", "value cannot be hashed as JSON", {
+        details: { type: "non-finite number" },
+      });
+    }
     return JSON.stringify(value) ?? "null";
   }
   if (seen.has(value)) {
@@ -127,7 +139,26 @@ export function proposeMeeting(input: {
   const existing = input.alreadyBooked?.find(
     (meeting) => meeting.operationKey === input.operationKey,
   );
-  if (existing) return existing;
+  if (existing) {
+    // A double click repeats the same payload. Reusing the key for another
+    // slot silently returned the old meeting, so the caller believed the new
+    // time was booked when it was not.
+    const sameAttendees =
+      [...existing.attendees].sort().join("\u0000") ===
+      [...input.attendees].sort().join("\u0000");
+    if (
+      existing.startUtc !== input.startUtc ||
+      existing.timeZone !== input.timeZone ||
+      !sameAttendees
+    ) {
+      throw new ServiceError(
+        "IDEMPOTENCY_CONFLICT",
+        "operation key reused with another meeting",
+        { details: { operationKey: input.operationKey } },
+      );
+    }
+    return existing;
+  }
 
   if (input.attendees.length === 0) {
     throw new ServiceError("VALIDATION_FAILED", "meeting needs at least one attendee");

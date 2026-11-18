@@ -139,6 +139,34 @@ describe("catalog and pricebook", () => {
       ),
     ).toBe("PRICE_STALE");
   });
+
+  it("refuses an ambiguous price book instead of picking by array order", () => {
+    const overlapping: PriceBook = {
+      ...priceBook,
+      entries: [
+        priceBook.entries[0]!,
+        {
+          productRef: "product-alpha-01",
+          unitPrice: { amount: "24.99", currency: "EUR" },
+          effectiveFrom: "2026-06-01T00:00:00Z",
+        },
+      ],
+    };
+    // Reordering the entries used to change the resolved amount.
+    expect(codeOf(() => resolvePrice(overlapping, "product-alpha-01", NOW))).toBe(
+      "PRICE_STALE",
+    );
+    expect(
+      codeOf(() =>
+        resolvePrice(
+          { ...overlapping, entries: [...overlapping.entries].reverse() },
+          "product-alpha-01",
+          NOW,
+        ),
+      ),
+    ).toBe("PRICE_STALE");
+    expect(codeOf(() => quote({ book: overlapping }))).toBe("PRICE_STALE");
+  });
 });
 
 describe("quote totals", () => {
@@ -169,6 +197,27 @@ describe("quote totals", () => {
     expect(JSON.stringify(quote({ lineDiscountBasisPoints: 250 }))).toBe(
       JSON.stringify(quote({ lineDiscountBasisPoints: 250 })),
     );
+  });
+
+  it("refuses a duplicated product or a conflicting tax mapping", () => {
+    // Two catalog entries for one id were resolved by array order, so the same
+    // quote could use another expiry (and another total) on retry.
+    expect(
+      codeOf(() =>
+        quote({
+          products: [product, { ...product, validUntil: "2026-12-01T00:00:00Z" }],
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() => quote({ taxRules: [taxRule, { ...taxRule, rateBasisPoints: 1000 }] })),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() => quote({ taxRules: [taxRule, { ...taxRule, sourceRef: "tax-source-02" }] })),
+    ).toBe("VALIDATION_FAILED");
+    // An identical repeated mapping is unambiguous and still accepted.
+    expect(quote({ taxRules: [taxRule, { ...taxRule }] }).tax.amount).toBe("8.40");
   });
 
   it("refuses to infer taxes", () => {
@@ -273,6 +322,34 @@ describe("discount mandates", () => {
         }),
       ),
     ).toBe("VALIDATION_FAILED");
+  });
+
+  it("blocks an order rate above the mandate even when rounding hides it", () => {
+    // 6 % of 0.10 with DOWN rounding discounts 0.01, exactly the rounded money
+    // cap of a 5 % mandate; the rate itself is still out of mandate.
+    const totals = computeQuote({
+      tenantId: "tenant-alpha-01",
+      priceBook: {
+        ...priceBook,
+        entries: [
+          {
+            productRef: "product-alpha-01",
+            unitPrice: { amount: "0.10", currency: "EUR" },
+            effectiveFrom: "2026-01-01T00:00:00Z",
+          },
+        ],
+      },
+      lines: [{ productRef: "product-alpha-01", quantity: "1" }],
+      products: [product],
+      taxRules: [{ ...taxRule, rateBasisPoints: 0 }],
+      policy: { rounding: "DOWN", exponent: 2, policyVersion: "q1" },
+      orderDiscountBasisPoints: 600,
+      now: NOW,
+    });
+    expect(totals.orderDiscount.amount).toBe("0.01");
+    expect(
+      codeOf(() => assertDiscountWithinMandate({ quote: totals, mandate, now: NOW })),
+    ).toBe("DISCOUNT_EXCEEDED");
   });
 
   it("treats a quote with no discount as clean", () => {

@@ -63,6 +63,31 @@ function codeOf(fn: () => unknown): string {
 }
 
 describe("approvals", () => {
+  it("refuses a negative ceiling or an unreadable expiry before persisting", () => {
+    const base = {
+      id: "approval-04",
+      tenantId: "tenant-alpha-01",
+      reviewer: { kind: "human" as const, id: "user-alpha-01" },
+      proofRef: "proof-04",
+      payloadHash: "sha256:aaa",
+      resourceVersion: 1,
+      rightsHash: "sha256:rights",
+      policyHash: "sha256:policy",
+      recipient: "ana@example.test",
+      channel: "email",
+      costCeiling: { amount: "10.00", currency: "EUR" },
+      expiresAt: "2027-01-01T00:00:00Z",
+      revocationVersion: 1,
+    };
+    expect(() => createApproval(base)).not.toThrow();
+    expect(
+      codeOf(() => createApproval({ ...base, costCeiling: { amount: "-1.00", currency: "EUR" } })),
+    ).toBe("APPROVAL_INVALID");
+    expect(codeOf(() => createApproval({ ...base, expiresAt: "eventually" }))).toBe(
+      "APPROVAL_INVALID",
+    );
+  });
+
   it("requires a human reviewer and a proof", () => {
     expect(
       codeOf(() =>

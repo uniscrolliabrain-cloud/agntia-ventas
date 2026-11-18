@@ -28,7 +28,7 @@ exit code, conteo de tests, gates, bloqueos y siguiente dependencia.
 | VTA-C06 | [C06](C06-REPORT.md) | PASS (Postgres WASM; Supabase real NOT_VERIFIED) |
 | VTA-C07 — C42 | [C07-C42](C07-C42-REPORT.md) | Matriz por campaña: 25 IMPLEMENTED, 10 PARTIAL, 1 DOCUMENTED |
 | Stubs abiertos | [REMAINING-STUBS](REMAINING-STUBS.md) | 16 stubs declarados en `CAPABILITY_STUBS` |
-| Auditoría transversal | [AUDIT-2026-11-18](AUDIT-2026-11-18.md) | 49 defectos corregidos con prueba (31 + 13 + 5 en tres pasadas); pendientes declarados |
+| Auditoría transversal | [AUDIT-2026-11-18](AUDIT-2026-11-18.md) | 55 defectos corregidos con prueba (31 + 13 + 5 + 6 en cuatro pasadas); pendientes declarados |
 
 ## Comandos del proyecto
 

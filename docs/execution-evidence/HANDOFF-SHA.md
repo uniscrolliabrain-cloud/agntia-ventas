@@ -14,10 +14,10 @@ Historial de la rama: `9d04e72` (C01–C05) → `e57df78` (evidencia) → `73c99
 ```bash
 pnpm install            # exit 0, lockfile pnpm-lock.yaml
 pnpm run typecheck      # exit 0 (contracts, domain, identity, sales, persistence, api)
-pnpm run test           # exit 0, 289 tests / 30 archivos
+pnpm run test           # exit 0, 293 tests / 30 archivos
 ```
 
-Conteo por paquete: contracts 12, domain 14, identity 31, sales 149,
+Conteo por paquete: contracts 12, domain 14, identity 31, sales 153,
 persistence 39, api 44. Reejecutado el 2026-11-18 (workspace restaurado:
 `pnpm install --frozen-lockfile` exit 0 antes de las dos comprobaciones).
 
@@ -56,8 +56,8 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   estados durable (intento condicional, ACK con referencia, timeout y
   reconciliación). `0005_domain_enums.sql` alinea los checks de estado con el
   dominio. El transporte al padre sigue siendo STUB.
-- Auditoría transversal del 2026-11-18: 49 defectos corregidos con prueba en
-  tres pasadas (aislamiento por tenant, propósito de permiso, supresión por
+- Auditoría transversal del 2026-11-18: 55 defectos corregidos con prueba en
+  cuatro pasadas (aislamiento por tenant, propósito de permiso, supresión por
   dirección, reloj del servidor, idempotencia de cotizaciones/aprobaciones,
   redirects y timeouts de proveedor, `no-store`, secretos, deriva
   dominio/esquema; y en la segunda: redondeo declarado en coste de modelo,

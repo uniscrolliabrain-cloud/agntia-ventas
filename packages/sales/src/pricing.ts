@@ -67,8 +67,12 @@ export function resolvePrice(
   if (!Number.isFinite(at)) {
     throw new ServiceError("VALIDATION_FAILED", "price resolution time is unreadable");
   }
-  const entry = priceBook.entries.find((candidate) => {
-    if (candidate.productRef !== productRef) return false;
+  // Every matching window is collected instead of taking the first one: two
+  // effective entries made the price depend on array order, so the same quote
+  // could be priced with the superseded amount and hash differently on retry.
+  const matches: PriceEntry[] = [];
+  for (const candidate of priceBook.entries) {
+    if (candidate.productRef !== productRef) continue;
     const from = Date.parse(candidate.effectiveFrom);
     if (!Number.isFinite(from)) {
       // An unreadable window is stale data, never an open-ended price.
@@ -76,21 +80,29 @@ export function resolvePrice(
         details: { productRef },
       });
     }
-    if (from > at) return false;
-    if (candidate.effectiveTo === undefined) return true;
-    const to = Date.parse(candidate.effectiveTo);
-    if (!Number.isFinite(to)) {
-      throw new ServiceError("PRICE_STALE", "price window end is unreadable", {
-        details: { productRef },
-      });
+    if (from > at) continue;
+    if (candidate.effectiveTo !== undefined) {
+      const to = Date.parse(candidate.effectiveTo);
+      if (!Number.isFinite(to)) {
+        throw new ServiceError("PRICE_STALE", "price window end is unreadable", {
+          details: { productRef },
+        });
+      }
+      if (to <= at) continue;
     }
-    return to > at;
-  });
-  if (!entry) {
+    matches.push(candidate);
+  }
+  if (matches.length === 0) {
     throw new ServiceError("PRICE_STALE", "no effective price for product", {
       details: { productRef, priceBook: priceBook.id, version: priceBook.version },
     });
   }
+  if (matches.length > 1) {
+    throw new ServiceError("PRICE_STALE", "more than one price window is effective", {
+      details: { productRef, effectiveEntries: matches.length },
+    });
+  }
+  const entry = matches[0]!;
   if (entry.unitPrice.currency !== priceBook.currency) {
     throw new ServiceError("CURRENCY_MISMATCH", "price currency differs from price book");
   }
@@ -114,8 +126,36 @@ export function computeQuote(request: QuoteRequest): QuoteTotals {
   const lines: QuoteLineTotal[] = [];
   const taxMappingRefs = new Set<string>();
 
+  // A duplicated catalog entry or two tax rules for one product were resolved
+  // by whichever came first, so reordering an equivalent payload changed the
+  // price or the tax rate (and therefore the content hash used for approvals).
+  const productsById = new Map<string, Product>();
+  for (const item of request.products) {
+    if (productsById.has(item.id)) {
+      throw new ServiceError("VALIDATION_FAILED", "duplicate product in catalog", {
+        details: { productRef: item.id },
+      });
+    }
+    productsById.set(item.id, item);
+  }
+
+  const taxRulesByProduct = new Map<string, TaxRule>();
+  for (const rule of request.taxRules) {
+    const existing = taxRulesByProduct.get(rule.productRef);
+    if (
+      existing &&
+      (existing.rateBasisPoints !== rule.rateBasisPoints ||
+        existing.sourceRef !== rule.sourceRef)
+    ) {
+      throw new ServiceError("VALIDATION_FAILED", "ambiguous tax mapping for product", {
+        details: { productRef: rule.productRef },
+      });
+    }
+    taxRulesByProduct.set(rule.productRef, existing ?? rule);
+  }
+
   for (const line of request.lines) {
-    const product = request.products.find((item) => item.id === line.productRef);
+    const product = productsById.get(line.productRef);
     if (!product) {
       throw new ServiceError("NOT_FOUND", "product not present in catalog", {
         details: { productRef: line.productRef },
@@ -137,7 +177,7 @@ export function computeQuote(request: QuoteRequest): QuoteTotals {
     }
     const net = applyDiscountBasisPoints(base, discountBasisPoints, request.policy);
 
-    const rule = request.taxRules.find((item) => item.productRef === line.productRef);
+    const rule = taxRulesByProduct.get(line.productRef);
     if (!rule || !rule.sourceRef) {
       throw new ServiceError("TAX_MAPPING_MISSING", "no approved tax rule for product", {
         details: { productRef: line.productRef },
@@ -184,6 +224,7 @@ export function computeQuote(request: QuoteRequest): QuoteTotals {
     subtotal,
     lineDiscount,
     orderDiscount,
+    orderDiscountBasisPoints: orderBasisPoints,
     net,
     tax,
     total,
@@ -254,6 +295,17 @@ export function assertDiscountWithinMandate(input: {
   if (overLine) {
     throw new ServiceError("DISCOUNT_EXCEEDED", "line discount above mandate rate", {
       details: { productRef: overLine.productRef },
+    });
+  }
+  // The money cap alone let a rate above the mandate pass on small amounts:
+  // with DOWN rounding, 6 % of 0.10 discounts 0.01, exactly the rounded cap of
+  // a 5 % mandate. A rate is a rate, so it is compared as a rate too.
+  if (quote.orderDiscountBasisPoints > mandate.maxRateBasisPoints) {
+    throw new ServiceError("DISCOUNT_EXCEEDED", "order discount above mandate rate", {
+      details: {
+        orderDiscountBasisPoints: quote.orderDiscountBasisPoints,
+        maxRateBasisPoints: mandate.maxRateBasisPoints,
+      },
     });
   }
 }
