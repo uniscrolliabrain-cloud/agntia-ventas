@@ -140,6 +140,35 @@ describe("imports", () => {
     ).toBe("CURSOR_REGRESSION");
   });
 
+  it("deduplicates the same id repeated inside one page", () => {
+    // Two equal rows on one page used to be two "fresh" records, so committing
+    // the page duplicated the imported row.
+    const preview = previewImport({
+      records: [
+        { externalId: "ext-05", contentHash: "sha256:a" },
+        { externalId: "ext-05", contentHash: "sha256:a" },
+      ],
+      seenExternalIds: [],
+      reviewedVersions: {},
+      previousCursor: null,
+      nextCursor: "v1:1:op-a",
+    });
+    expect(preview.fresh.map((record) => record.externalId)).toEqual(["ext-05"]);
+    expect(preview.duplicates).toEqual(["ext-05"]);
+  });
+
+  it("does not treat a prototype key as a reviewed record", () => {
+    const preview = previewImport({
+      records: [{ externalId: "__proto__", contentHash: "sha256:d" }],
+      seenExternalIds: [],
+      reviewedVersions: {},
+      previousCursor: null,
+      nextCursor: "v1:1:op-a",
+    });
+    expect(preview.conflicts).toEqual([]);
+    expect(preview.fresh.map((record) => record.externalId)).toEqual(["__proto__"]);
+  });
+
   it("refuses a cursor it cannot order instead of comparing strings", () => {
     expect(
       codeOf(() =>
@@ -201,6 +230,43 @@ describe("order and renewal", () => {
         ackRef: "ack-01",
       }).status,
     ).toBe("proposed_to_operations");
+  });
+
+  it("refuses an unreadable or negative order and renewal amount", () => {
+    const order = {
+      id: "order-04",
+      acceptedQuoteRef: "quote-01",
+      receiverRef: "receiver-01",
+      ackRef: "ack-01",
+    };
+    expect(
+      codeOf(() => proposeOrder({ ...order, total: { amount: "-1.00", currency: "EUR" } })),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() => proposeOrder({ ...order, total: { amount: "$45", currency: "EUR" } })),
+    ).toBe("VALIDATION_FAILED");
+
+    // `decimal.js` used to throw a plain TypeError for an unreadable price.
+    expect(
+      codeOf(() =>
+        proposeRenewal({
+          id: "renewal-04",
+          previousPrice: { amount: "diecinueve", currency: "EUR" },
+          proposedPrice: { amount: "19.99", currency: "EUR" },
+          approvalRef: "approval-01",
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() =>
+        proposeRenewal({
+          id: "renewal-05",
+          previousPrice: { amount: "19.99", currency: "EUR" },
+          proposedPrice: { amount: "-19.99", currency: "EUR" },
+          approvalRef: "approval-01",
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
   });
 
   it("keeps a price change as an approval-gated proposal", () => {

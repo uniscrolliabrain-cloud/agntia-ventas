@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { ServiceError, type Money } from "@agntia-ventas/contracts";
+import { MoneySchema, ServiceError, type Money } from "@agntia-ventas/contracts";
 
 // ---------------------------------------------------------------------------
 // C08 — secret references and provider discovery
@@ -132,7 +132,14 @@ export function previewImport(input: {
   const conflicts: { externalId: string; reason: string }[] = [];
 
   for (const record of input.records) {
-    const reviewed = input.reviewedVersions[record.externalId];
+    // A plain read falls through to `Object.prototype` for ids such as
+    // `__proto__`, so an unreviewed record looked like a changed one.
+    const reviewed = Object.prototype.hasOwnProperty.call(
+      input.reviewedVersions,
+      record.externalId,
+    )
+      ? input.reviewedVersions[record.externalId]
+      : undefined;
     if (reviewed && reviewed !== record.contentHash) {
       conflicts.push({ externalId: record.externalId, reason: "reviewed_content_changed" });
       continue;
@@ -142,6 +149,9 @@ export function previewImport(input: {
       continue;
     }
     freshnessGuard(record);
+    // The same id repeated inside one page is still a duplicate: without this
+    // the page produced two fresh records and the commit duplicated the row.
+    seen.add(record.externalId);
     fresh.push(record);
   }
 
@@ -159,6 +169,21 @@ function freshnessGuard(record: ImportRecord): void {
 // ---------------------------------------------------------------------------
 // C29 — order proposal and operational handoff
 // ---------------------------------------------------------------------------
+
+/** An order or renewal total is exact, non-negative contract money. */
+function requireNonNegativeMoney(money: Money, field: string): void {
+  const parsed = MoneySchema.safeParse(money);
+  if (!parsed.success) {
+    throw new ServiceError("VALIDATION_FAILED", `${field} is not exact money`, {
+      details: { field },
+    });
+  }
+  if (new Decimal(parsed.data.amount).isNegative()) {
+    throw new ServiceError("VALIDATION_FAILED", `${field} cannot be negative`, {
+      details: { field },
+    });
+  }
+}
 
 export interface OrderProposal {
   readonly id: string;
@@ -183,6 +208,7 @@ export function proposeOrder(input: {
   if (!input.receiverRef) {
     throw new ServiceError("VALIDATION_FAILED", "order needs a receiver");
   }
+  requireNonNegativeMoney(input.total, "total");
   if (!input.ackRef) {
     throw new ServiceError("HANDOFF_NOT_ACKED", "order needs the receiver ACK");
   }
@@ -216,6 +242,8 @@ export function proposeRenewal(input: {
   proposedPrice: Money;
   approvalRef: string | null;
 }): RenewalProposal {
+  requireNonNegativeMoney(input.previousPrice, "previousPrice");
+  requireNonNegativeMoney(input.proposedPrice, "proposedPrice");
   if (input.previousPrice.currency !== input.proposedPrice.currency) {
     throw new ServiceError("CURRENCY_MISMATCH", "renewal prices must share a currency");
   }
