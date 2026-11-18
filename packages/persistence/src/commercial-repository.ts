@@ -224,7 +224,11 @@ export function createQuoteRepository(createSession: SessionFactory): QuoteRepos
         const found = existing.rows[0];
         if (found) {
           const record = toQuote(found);
-          if (record.contentHash !== input.contentHash) {
+          if (
+            record.contentHash !== input.contentHash ||
+            record.opportunityId !== input.opportunityId ||
+            record.priceBookVersion !== input.priceBookVersion
+          ) {
             throw new ServiceError(
               "IDEMPOTENCY_CONFLICT",
               "operation key reused with a different quote",
@@ -293,10 +297,22 @@ export function createApprovalRepository(
         const found = existing.rows[0];
         if (found) {
           const record = toApproval(found);
+          // Every field of the binding is part of the identity: reusing a key
+          // with another recipient or ceiling is a conflict, never a replay
+          // that silently returns the old approval.
           if (
             record.payloadHash !== input.payloadHash ||
+            record.rightsHash !== input.rightsHash ||
+            record.policyHash !== input.policyHash ||
             record.reviewerId !== input.reviewerId ||
-            record.resourceVersion !== input.resourceVersion
+            record.resourceRef !== input.resourceRef ||
+            record.resourceVersion !== input.resourceVersion ||
+            record.proofRef !== input.proofRef ||
+            record.recipient !== input.recipient ||
+            record.channel !== input.channel ||
+            !sameAmount(record.costCeiling, input.costCeiling) ||
+            record.costCeilingCurrency !== input.costCeilingCurrency ||
+            Date.parse(record.expiresAt) !== Date.parse(input.expiresAt)
           ) {
             throw new ServiceError(
               "IDEMPOTENCY_CONFLICT",
@@ -411,13 +427,25 @@ export function createBudgetRepository(createSession: SessionFactory): BudgetRep
           return { record, reused: true };
         }
 
-        const inserted = await tx.query<BudgetRow>(
-          `insert into app.budget_reservations (id, tenant_id, operation_key, amount, currency)
-           values ($1, $2, $3, $4, $5)
-           returning id, tenant_id, operation_key, amount, currency, status, created_at`,
-          [id, tenantId, operationKey, amount, currency],
-        );
-        return { record: toBudget(inserted.rows[0]!), reused: false };
+        try {
+          const inserted = await tx.query<BudgetRow>(
+            `insert into app.budget_reservations (id, tenant_id, operation_key, amount, currency)
+             values ($1, $2, $3, $4, $5)
+             returning id, tenant_id, operation_key, amount, currency, status, created_at`,
+            [id, tenantId, operationKey, amount, currency],
+          );
+          return { record: toBudget(inserted.rows[0]!), reused: false };
+        } catch (error) {
+          // A concurrent writer that won the race (same key or same id) is a
+          // conflict, not an INTERNAL error leaking the driver message.
+          if (isUniqueViolation(error)) {
+            throw new ServiceError(
+              "IDEMPOTENCY_CONFLICT",
+              "a concurrent operation already reserved this budget",
+            );
+          }
+          throw error;
+        }
       });
     },
   };

@@ -34,6 +34,8 @@ export function createApp(dependencies: AppDependencies): Hono<AppEnvironment> {
     const correlationId =
       incoming && CORRELATION_PATTERN.test(incoming) ? incoming : newCorrelationId();
     context.set("correlationId", correlationId);
+    // Authenticated data and signed portal pages are never cacheable.
+    context.header("cache-control", "no-store");
     await next();
   });
 

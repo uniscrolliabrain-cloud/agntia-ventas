@@ -104,6 +104,10 @@ describe("catalog and pricebook", () => {
     expect(codeOf(() => assertCatalogFresh({ ...product, stockAt: "" }, NOW))).toBe(
       "CATALOG_STALE",
     );
+    // An unreadable expiry must not pass a NaN comparison as fresh.
+    expect(
+      codeOf(() => assertCatalogFresh({ ...product, validUntil: "soon" }, NOW)),
+    ).toBe("CATALOG_STALE");
     expect(codeOf(() => assertDeliveryClaim({ ...product, deliveryAssertion: undefined }, NOW))).toBe(
       "CATALOG_STALE",
     );
@@ -121,6 +125,19 @@ describe("catalog and pricebook", () => {
       ),
     ).toBe("PRICE_STALE");
     expect(codeOf(() => resolvePrice(priceBook, "product-unknown", NOW))).toBe("PRICE_STALE");
+    // An unreadable window end must not become an open-ended price.
+    expect(
+      codeOf(() =>
+        resolvePrice(
+          {
+            ...priceBook,
+            entries: [{ ...priceBook.entries[0]!, effectiveTo: "eventually" }],
+          },
+          "product-alpha-01",
+          NOW,
+        ),
+      ),
+    ).toBe("PRICE_STALE");
   });
 });
 
@@ -159,6 +176,13 @@ describe("quote totals", () => {
     expect(
       codeOf(() => quote({ taxRules: [{ ...taxRule, sourceRef: "" }] })),
     ).toBe("TAX_MAPPING_MISSING");
+    // A negative or excessive rate is invalid data, not a discount on tax.
+    expect(
+      codeOf(() => quote({ taxRules: [{ ...taxRule, rateBasisPoints: -100 }] })),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() => quote({ taxRules: [{ ...taxRule, rateBasisPoints: 10_001 }] })),
+    ).toBe("VALIDATION_FAILED");
   });
 
   it("refuses mixed currencies and foreign tenants", () => {
@@ -180,6 +204,10 @@ describe("quote totals", () => {
 
     expect(
       codeOf(() => quote({ products: [{ ...product, tenantId: "tenant-beta-02" }] })),
+    ).toBe("TENANT_MISMATCH");
+
+    expect(
+      codeOf(() => quote({ book: { ...priceBook, tenantId: "tenant-beta-02" } })),
     ).toBe("TENANT_MISMATCH");
   });
 });
@@ -223,6 +251,28 @@ describe("discount mandates", () => {
         }),
       ),
     ).toBe("DISCOUNT_EXCEEDED");
+  });
+
+  it("refuses an unreadable mandate expiry and an out-of-range rate", () => {
+    const totals = quote({ lineDiscountBasisPoints: 500 });
+    expect(
+      codeOf(() =>
+        assertDiscountWithinMandate({
+          quote: totals,
+          mandate: { ...mandate, expiresAt: "eventually" },
+          now: NOW,
+        }),
+      ),
+    ).toBe("MANDATE_EXPIRED");
+    expect(
+      codeOf(() =>
+        assertDiscountWithinMandate({
+          quote: totals,
+          mandate: { ...mandate, maxRateBasisPoints: 10_001 },
+          now: NOW,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
   });
 
   it("treats a quote with no discount as clean", () => {

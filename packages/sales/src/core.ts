@@ -46,7 +46,9 @@ export function acceptCandidate(input: {
   existing: readonly AcceptedLead[];
 }): CandidateAcceptance {
   const previous = input.existing.find(
-    (lead) => lead.candidateId === input.candidate.id,
+    (lead) =>
+      lead.candidateId === input.candidate.id &&
+      lead.tenantId === input.candidate.tenantId,
   );
   if (previous) return { lead: previous, duplicate: true };
   return {
@@ -66,38 +68,71 @@ export interface OutreachDecision {
   readonly reason?:
     | "not_accepted"
     | "no_permission"
+    | "purpose_mismatch"
     | "channel_mismatch"
     | "suppressed"
     | "permission_expired";
 }
 
+function normaliseText(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 /**
  * Discovery is not contactability: acceptance, purpose, channel and suppression
  * are checked before any draft. A public record never proves permission.
+ *
+ * - A lead accepted in another tenant does not authorize this candidate.
+ * - Permission is bound to a purpose; another purpose is a mismatch.
+ * - Suppression is per channel *value* (the actual address), not per channel:
+ *   one opt-out must not silence every contact of the tenant.
+ * - An unreadable expiry is treated as expired, never as permission.
  */
 export function canRequestOutreach(input: {
   candidate: LeadCandidate;
   accepted: readonly AcceptedLead[];
   suppressions: readonly SuppressionEntry[];
   channel: "email" | "phone" | "whatsapp" | "linkedin";
+  purpose: string;
+  recipient: string;
   now: string;
 }): OutreachDecision {
+  const purpose = input.purpose.trim();
+  const recipient = input.recipient.trim();
+  if (purpose.length === 0 || recipient.length === 0) {
+    throw new ServiceError(
+      "VALIDATION_FAILED",
+      "outreach needs an explicit purpose and recipient",
+    );
+  }
+
   const isAccepted = input.accepted.some(
-    (lead) => lead.candidateId === input.candidate.id,
+    (lead) =>
+      lead.candidateId === input.candidate.id &&
+      lead.tenantId === input.candidate.tenantId,
   );
   if (!isAccepted) return { allowed: false, reason: "not_accepted" };
 
   const permission = input.candidate.permission;
   if (!permission) return { allowed: false, reason: "no_permission" };
+  if (normaliseText(permission.purpose) !== normaliseText(purpose)) {
+    return { allowed: false, reason: "purpose_mismatch" };
+  }
   if (permission.channel !== input.channel) {
     return { allowed: false, reason: "channel_mismatch" };
   }
-  if (permission.expiresAt && new Date(permission.expiresAt) <= new Date(input.now)) {
-    return { allowed: false, reason: "permission_expired" };
+  if (permission.expiresAt) {
+    const expiresAt = Date.parse(permission.expiresAt);
+    const now = Date.parse(input.now);
+    if (!Number.isFinite(expiresAt) || !Number.isFinite(now) || expiresAt <= now) {
+      return { allowed: false, reason: "permission_expired" };
+    }
   }
   const suppressed = input.suppressions.some(
     (entry) =>
-      entry.tenantId === input.candidate.tenantId && entry.channel === input.channel,
+      entry.tenantId === input.candidate.tenantId &&
+      entry.channel === input.channel &&
+      normaliseText(entry.value) === normaliseText(recipient),
   );
   if (suppressed) return { allowed: false, reason: "suppressed" };
   return { allowed: true };

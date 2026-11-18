@@ -1,5 +1,10 @@
 import Decimal from "decimal.js";
-import { ServiceError, type Money, type RoundingPolicy } from "@agntia-ventas/contracts";
+import {
+  RoundingPolicySchema,
+  ServiceError,
+  type Money,
+  type RoundingPolicy,
+} from "@agntia-ventas/contracts";
 
 export interface ModelPrice {
   readonly modelRef: string;
@@ -18,6 +23,12 @@ export function estimateModelCost(input: {
   readonly policy: RoundingPolicy;
 }): Money {
   const { price } = input;
+  const policy = RoundingPolicySchema.safeParse(input.policy);
+  if (!policy.success) {
+    throw new ServiceError("ROUNDING_UNSUPPORTED", "invalid rounding policy", {
+      details: { issues: policy.error.issues.map((issue) => issue.message) },
+    });
+  }
   if (price.inputPerMillion.currency !== price.outputPerMillion.currency) {
     throw new ServiceError("CURRENCY_MISMATCH", "model prices must share a currency");
   }
@@ -33,11 +44,14 @@ export function estimateModelCost(input: {
     .dividedBy(million)
     .plus(new Decimal(price.outputPerMillion.amount).times(input.outputTokens).dividedBy(million))
     .toDecimalPlaces(
-      Math.min(input.policy.exponent, PRICE_TABLE_EXPONENT),
+      Math.min(policy.data.exponent, PRICE_TABLE_EXPONENT),
       Decimal.ROUND_HALF_UP,
     );
 
-  return { amount: cost.toFixed(Math.min(input.policy.exponent, PRICE_TABLE_EXPONENT)), currency: price.inputPerMillion.currency };
+  return {
+    amount: cost.toFixed(Math.min(policy.data.exponent, PRICE_TABLE_EXPONENT)),
+    currency: price.inputPerMillion.currency,
+  };
 }
 
 export interface BudgetUsage {

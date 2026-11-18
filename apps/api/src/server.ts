@@ -43,6 +43,8 @@ function createMembershipRepository(): MembershipRepository {
   return createPooledMembershipRepository(pool);
 }
 
+const portalSecret = process.env["PORTAL_SECRET"];
+
 const app = createApp({
   verifyToken: createSupabaseJwtVerifier({
     issuer: requireEnv("SUPABASE_JWT_ISSUER"),
@@ -51,6 +53,8 @@ const app = createApp({
   }),
   memberships: createMembershipRepository(),
   ...(pool ? { commercial: createPooledCommercialRepository(pool) } : {}),
+  // Absent, the portal fails closed with PROVIDER_NOT_CONFIGURED.
+  ...(portalSecret ? { portalSecret } : {}),
 });
 
 const port = Number(process.env["PORT"] ?? 8787);

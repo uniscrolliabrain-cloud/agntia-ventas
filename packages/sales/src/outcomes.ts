@@ -45,6 +45,18 @@ export function buildForecast(input: {
   if (input.scenarios.length === 0) {
     throw new ServiceError("VALIDATION_FAILED", "forecast needs at least one scenario");
   }
+  for (const [label, value] of [
+    ["accountsWithAmount", input.accountsWithAmount],
+    ["accountsTotal", input.accountsTotal],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new ServiceError(
+        "VALIDATION_FAILED",
+        "coverage counts must be non-negative integers",
+        { details: { field: label } },
+      );
+    }
+  }
   if (input.accountsWithAmount > input.accountsTotal) {
     throw new ServiceError("VALIDATION_FAILED", "coverage cannot exceed total accounts");
   }

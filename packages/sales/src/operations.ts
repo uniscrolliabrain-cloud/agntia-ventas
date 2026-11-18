@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { ServiceError, type Money } from "@agntia-ventas/contracts";
 
 // ---------------------------------------------------------------------------
@@ -12,6 +13,10 @@ export interface SecretRef {
 
 const SECRET_PATTERNS = [
   /sk-[A-Za-z0-9_-]{16,}/,
+  /sk_(live|test)_[A-Za-z0-9]{10,}/,
+  /gh[pousr]_[A-Za-z0-9]{20,}/,
+  /AKIA[0-9A-Z]{16}/,
+  /xox[baprs]-[A-Za-z0-9-]{10,}/,
   /Bearer\s+[A-Za-z0-9._-]{10,}/,
   /postgres(ql)?:\/\/[^\s]+/i,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
@@ -183,7 +188,10 @@ export function proposeRenewal(input: {
   if (input.previousPrice.currency !== input.proposedPrice.currency) {
     throw new ServiceError("CURRENCY_MISMATCH", "renewal prices must share a currency");
   }
-  const changed = input.previousPrice.amount !== input.proposedPrice.amount;
+  // Same money, other scale ("10.0" vs "10.00") is not a price change.
+  const changed = !new Decimal(input.previousPrice.amount).equals(
+    input.proposedPrice.amount,
+  );
   if (changed && !input.approvalRef) {
     throw new ServiceError(
       "APPROVAL_INVALID",

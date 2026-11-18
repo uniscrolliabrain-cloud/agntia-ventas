@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { ServiceError, type Membership } from "@agntia-ventas/contracts";
 import type {
@@ -101,6 +102,21 @@ describe("portal token", () => {
     expect(() =>
       verifyPortalToken({ token: link({ expiresAt: "2026-11-01T00:00:00Z" }), secret: SECRET, now: NOW }),
     ).toThrow(/expired/i);
+  });
+
+  it("rejects a correctly signed token whose claims are unreadable", () => {
+    // The signature is genuine; only the payload shape is wrong. An unreadable
+    // expiry must not fall through a NaN comparison as if it were valid.
+    const payload = Buffer.from(
+      JSON.stringify({ t: "tenant-alpha-01", q: quote.id, e: "soon" }),
+      "utf8",
+    ).toString("base64url");
+    const signature = createHmac("sha256", SECRET)
+      .update(payload, "utf8")
+      .digest("hex");
+    expect(() =>
+      verifyPortalToken({ token: `${payload}.${signature}`, secret: SECRET, now: NOW }),
+    ).toThrow(/unknown/i);
   });
 });
 

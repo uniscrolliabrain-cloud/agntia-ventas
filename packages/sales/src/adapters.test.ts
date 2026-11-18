@@ -97,4 +97,13 @@ describe("disabled ports and bridge", () => {
       "CAPABILITY_NOT_GRANTED",
     );
   });
+
+  it("denies by default any tool outside the named surface", () => {
+    expect(() => assertCapabilityAllowed("sales_pipeline_read")).not.toThrow();
+    for (const capability of ["sales_send_email", "sales_charge_card", "admin_users"]) {
+      expect(codeOf(() => assertCapabilityAllowed(capability))).toBe(
+        "CAPABILITY_NOT_GRANTED",
+      );
+    }
+  });
 });

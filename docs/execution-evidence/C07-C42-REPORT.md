@@ -28,12 +28,12 @@ Conteo real tras la ejecución:
 | Paquete | Archivos | Pruebas |
 |---|---|---|
 | contracts | 1 | 12 |
-| domain | 1 | 13 |
+| domain | 1 | 14 |
 | identity | 3 | 28 |
-| sales | 14 | 124 |
-| persistence | 6 | 36 |
-| api | 5 | 42 |
-| **total** | **30** | **255** |
+| sales | 14 | 136 |
+| persistence | 6 | 38 |
+| api | 5 | 44 |
+| **total** | **30** | **272** |
 
 Entorno: Node v26.13.0, pnpm 10.34.9, PGlite (PostgreSQL WASM) como motor de
 pruebas. Docker no es utilizable en este host (`permission denied` en
@@ -84,6 +84,21 @@ registrado; **PARTIAL** = parte local verificada, parte externa no;
 | C40 Vertical E2E y fallos | `e2e.ts`: vertical sintético completo con 11 pasos, efectos externos en cero; `reconcileAfterTimeout` | IMPLEMENTED (local) — red real STUB | `e2e.test.ts` |
 | C41 Operaciones, CI, backup y release | `operations.ts`: plan de restore (restricciones reaplicadas, jobs huérfanos bloqueados); `.github/workflows/ci.yml` ejecuta install/typecheck/test; `OPERATIONS_STATUS` declara backups/observabilidad `NOT_CONFIGURED` | PARTIAL — el workflow no se ejecutó en este host y no hay backup | `operations.test.ts` |
 | C42 Aceptación, evidencia y handoff | Este informe + matriz + `HANDOFF-SHA.md` | DOCUMENTED | — |
+
+## Auditoría transversal (2026-11-18)
+
+Se revisó el árbol completo y se corrigieron 31 defectos con prueba, entre
+ellos: aceptación/supresión fuera de tenant, propósito de permiso no verificado,
+reloj controlado por el cliente en las cotizaciones, replay de cotizaciones y
+aprobaciones que devolvía la fila vieja con otro payload, redirects de
+proveedor fuera del allowlist, timeouts que no cubrían el cuerpo de la
+respuesta, `cache-control` ausente en respuestas autenticadas, formatos de
+secreto no detectados y deriva entre los estados del dominio y los `check` de
+Postgres (`0005_domain_enums.sql`).
+
+El detalle, el código tocado, la prueba de cada corrección y los hallazgos
+pendientes están en [AUDIT-2026-11-18.md](AUDIT-2026-11-18.md). Nada de la
+auditoría acredita un proveedor ni se ejecutó contra Supabase real.
 
 ## Persistencia de efectos
 
@@ -236,7 +251,7 @@ verdad. La tabla legible está en [REMAINING-STUBS.md](REMAINING-STUBS.md).
 export PATH="$HOME/.local/bin:$PATH"   # pnpm local, sin root
 pnpm install                            # EXIT=0
 pnpm run typecheck                      # EXIT=0
-pnpm run test                           # EXIT=0, 255 pruebas / 30 archivos
+pnpm run test                           # EXIT=0, 272 pruebas / 30 archivos
 ```
 
 Cualquier gate marcado IMPLEMENTED arriba tiene su archivo de prueba en

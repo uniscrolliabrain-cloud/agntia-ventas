@@ -180,6 +180,28 @@ describe("source retrieval", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("bounds the body read with the same timeout", async () => {
+    await expect(
+      fetchSourceExcerpt({
+        url: "https://www.example.test/acme",
+        allowedHosts: ALLOWED,
+        now,
+        timeoutMs: 5,
+        fetchImpl: async (_url, init) => ({
+          ok: true,
+          status: 200,
+          headers: { get: () => "text/html" },
+          text: () =>
+            new Promise<string>((_resolve, reject) => {
+              init.signal.addEventListener("abort", () =>
+                reject(new Error("aborted")),
+              );
+            }),
+        }),
+      }),
+    ).rejects.toMatchObject({ code: "PROVIDER_TIMEOUT", retryable: true });
+  });
+
   it("turns an aborted request into a timeout", async () => {
     await expect(
       fetchSourceExcerpt({

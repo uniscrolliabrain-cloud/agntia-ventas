@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { ServiceError } from "@agntia-ventas/contracts";
+import {
+  MAX_ENVELOPE_BYTES,
+  ServiceError,
+  envelopeByteLength,
+} from "@agntia-ventas/contracts";
 
 export const PARENT_EVENT_TYPES = [
   "ventas.proposal.created",
@@ -24,28 +28,49 @@ const ParentEventSchema = z
 
 export type ParentEvent = z.infer<typeof ParentEventSchema>;
 
-const FORBIDDEN_KEYS = [
+/**
+ * Keys are compared after removing separators and case, so a payload cannot
+ * smuggle `internal_notes` or `API-KEY` past a camelCase-only list.
+ */
+const FORBIDDEN_KEYS = new Set([
   "prompt",
-  "apiKey",
+  "systemprompt",
+  "apikey",
   "token",
   "secret",
-  "internalNotes",
-  "rawProviderResponse",
-];
+  "password",
+  "privatekey",
+  "authorization",
+  "internalnotes",
+  "rawproviderresponse",
+]);
 
-function assertNoForbiddenKeys(value: unknown, path = ""): void {
+function normaliseKey(key: string): string {
+  return key.replace(/[_\-\s]/g, "").toLowerCase();
+}
+
+function assertNoForbiddenKeys(
+  value: unknown,
+  path = "",
+  seen = new WeakSet<object>(),
+): void {
+  if (!value || typeof value !== "object") return;
+  // A repeated reference is skipped, so a cyclic payload cannot blow the stack.
+  if (seen.has(value)) return;
+  seen.add(value);
   if (Array.isArray(value)) {
-    value.forEach((item, index) => assertNoForbiddenKeys(item, `${path}[${index}]`));
+    value.forEach((item, index) =>
+      assertNoForbiddenKeys(item, `${path}[${index}]`, seen),
+    );
     return;
   }
-  if (!value || typeof value !== "object") return;
   for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-    if (FORBIDDEN_KEYS.includes(key)) {
+    if (FORBIDDEN_KEYS.has(normaliseKey(key))) {
       throw new ServiceError("VALIDATION_FAILED", "bridge payload carries an internal field", {
         details: { path: path ? `${path}.${key}` : key },
       });
     }
-    assertNoForbiddenKeys(nested, path ? `${path}.${key}` : key);
+    assertNoForbiddenKeys(nested, path ? `${path}.${key}` : key, seen);
   }
 }
 
@@ -62,6 +87,20 @@ export function mapToParentEvent(input: {
   readonly payload: Readonly<Record<string, unknown>>;
 }): ParentEvent {
   assertNoForbiddenKeys(input.payload);
+
+  // The event crosses a process boundary: bound it and refuse values JSON
+  // cannot represent instead of failing later in the outbox.
+  let payloadBytes: number;
+  try {
+    payloadBytes = envelopeByteLength(input.payload);
+  } catch {
+    throw new ServiceError("VALIDATION_FAILED", "bridge payload is not serializable");
+  }
+  if (payloadBytes > MAX_ENVELOPE_BYTES) {
+    throw new ServiceError("VALIDATION_FAILED", "bridge payload exceeds the size limit", {
+      details: { payloadBytes, maxBytes: MAX_ENVELOPE_BYTES },
+    });
+  }
 
   const candidate = {
     schemaVersion: 1 as const,

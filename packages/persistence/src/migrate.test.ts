@@ -17,13 +17,14 @@ describe("migration runner", () => {
       "0002_domain",
       "0003_operations",
       "0004_outbox",
+      "0005_domain_enums",
     ]);
     expect(first.skipped).toEqual([]);
 
     const recorded = await client.query<{ version: string; checksum: string }>(
       "select version, checksum from app.schema_migrations order by version",
     );
-    expect(recorded.rows).toHaveLength(4);
+    expect(recorded.rows).toHaveLength(5);
     for (const row of recorded.rows) {
       expect(row.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -35,6 +36,7 @@ describe("migration runner", () => {
       "0002_domain",
       "0003_operations",
       "0004_outbox",
+      "0005_domain_enums",
     ]);
   });
 

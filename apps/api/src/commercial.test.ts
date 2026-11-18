@@ -113,7 +113,6 @@ function quoteBody(overrides: Record<string, unknown> = {}): Record<string, unkn
       { productRef: "product-alpha-01", rateBasisPoints: 2100, sourceRef: "tax-source-01" },
     ],
     policy: { rounding: "HALF_UP", exponent: 2, policyVersion: "q1" },
-    now: "2026-11-15T10:00:00Z",
     ...overrides,
   };
 }
@@ -127,6 +126,15 @@ describe("quotes/preview", () => {
     expect(json.data.totals.net.amount).toBe("37.98");
     expect(json.data.externalEffect).toBe(false);
     expect(json.correlationId).toBe(CORRELATION_ID);
+  });
+
+  it("rejects a caller-supplied clock so expiry cannot be spoofed", async () => {
+    const { status, json } = await post(
+      "/v1/ventas/quotes/preview",
+      quoteBody({ now: "2020-01-01T00:00:00Z" }),
+    );
+    expect(status).toBe(422);
+    expect(json.error.code).toBe("VALIDATION_FAILED");
   });
 
   it("rejects a body that tries to declare a tenant", async () => {

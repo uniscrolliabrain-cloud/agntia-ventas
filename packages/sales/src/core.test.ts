@@ -84,7 +84,22 @@ describe("directory and representation", () => {
 });
 
 describe("candidate acceptance and outreach", () => {
-  it("is idempotent for the same candidate", () => {
+  const acceptedLead: AcceptedLead = {
+    id: "lead-candidate-alpha-01",
+    tenantId: "tenant-alpha-01",
+    candidateId: "candidate-alpha-01",
+    acceptedBy: "user-alpha-01",
+    acceptedAt: NOW,
+  };
+
+  const outreach = {
+    channel: "email" as const,
+    purpose: "pilot outreach",
+    recipient: "ana@example.test",
+    now: NOW,
+  };
+
+  it("is idempotent for the same candidate in the same tenant", () => {
     const first = acceptCandidate({
       candidate: candidate(),
       acceptedBy: "user-alpha-01",
@@ -103,44 +118,76 @@ describe("candidate acceptance and outreach", () => {
     expect(second.lead.id).toBe(first.lead.id);
   });
 
+  it("does not reuse another tenant's acceptance with the same candidate id", () => {
+    const first = acceptCandidate({
+      candidate: candidate(),
+      acceptedBy: "user-alpha-01",
+      acceptedAt: NOW,
+      existing: [],
+    });
+    const foreign: AcceptedLead = { ...first.lead, tenantId: "tenant-beta-02" };
+    const second = acceptCandidate({
+      candidate: candidate(),
+      acceptedBy: "user-alpha-01",
+      acceptedAt: NOW,
+      existing: [foreign],
+    });
+
+    expect(second.duplicate).toBe(false);
+    expect(second.lead.tenantId).toBe("tenant-alpha-01");
+    expect(second.lead.id).toBe(first.lead.id);
+  });
+
   it("refuses outreach without acceptance", () => {
     expect(
       canRequestOutreach({
         candidate: candidate(),
         accepted: [],
         suppressions: [],
-        channel: "email",
-        now: NOW,
+        ...outreach,
       }),
     ).toEqual({ allowed: false, reason: "not_accepted" });
   });
 
-  it("refuses outreach without permission, with another channel or expired", () => {
-    const acceptedLead: AcceptedLead = {
-      id: "lead-candidate-alpha-01",
-      tenantId: "tenant-alpha-01",
-      candidateId: "candidate-alpha-01",
-      acceptedBy: "user-alpha-01",
-      acceptedAt: NOW,
-    };
+  it("does not accept a lead provisioned in another tenant", () => {
+    expect(
+      canRequestOutreach({
+        candidate: candidate(),
+        accepted: [{ ...acceptedLead, tenantId: "tenant-beta-02" }],
+        suppressions: [],
+        ...outreach,
+      }),
+    ).toEqual({ allowed: false, reason: "not_accepted" });
+  });
 
+  it("refuses outreach without permission, with another purpose, channel or expiry", () => {
     expect(
       canRequestOutreach({
         candidate: candidate({ permission: null }),
         accepted: [acceptedLead],
         suppressions: [],
-        channel: "email",
-        now: NOW,
+        ...outreach,
       }).reason,
     ).toBe("no_permission");
+
+    // Permission is purpose-bound: a pilot consent does not cover a newsletter.
+    expect(
+      canRequestOutreach({
+        candidate: candidate(),
+        accepted: [acceptedLead],
+        suppressions: [],
+        ...outreach,
+        purpose: "newsletter",
+      }).reason,
+    ).toBe("purpose_mismatch");
 
     expect(
       canRequestOutreach({
         candidate: candidate(),
         accepted: [acceptedLead],
         suppressions: [],
+        ...outreach,
         channel: "phone",
-        now: NOW,
       }).reason,
     ).toBe("channel_mismatch");
 
@@ -149,27 +196,36 @@ describe("candidate acceptance and outreach", () => {
         candidate: candidate({
           permission: {
             basis: "consent",
-            purpose: "pilot",
+            purpose: "pilot outreach",
             channel: "email",
             expiresAt: "2026-01-01T00:00:00Z",
           },
         }),
         accepted: [acceptedLead],
         suppressions: [],
-        channel: "email",
-        now: NOW,
+        ...outreach,
+      }).reason,
+    ).toBe("permission_expired");
+
+    // An unreadable expiry is never a silent permission.
+    expect(
+      canRequestOutreach({
+        candidate: candidate({
+          permission: {
+            basis: "consent",
+            purpose: "pilot outreach",
+            channel: "email",
+            expiresAt: "not-a-date",
+          },
+        }),
+        accepted: [acceptedLead],
+        suppressions: [],
+        ...outreach,
       }).reason,
     ).toBe("permission_expired");
   });
 
-  it("blocks a suppressed channel even with acceptance and permission", () => {
-    const acceptedLead: AcceptedLead = {
-      id: "lead-candidate-alpha-01",
-      tenantId: "tenant-alpha-01",
-      candidateId: "candidate-alpha-01",
-      acceptedBy: "user-alpha-01",
-      acceptedAt: NOW,
-    };
+  it("blocks the suppressed address and leaves other recipients contactable", () => {
     expect(
       canRequestOutreach({
         candidate: candidate(),
@@ -182,10 +238,26 @@ describe("candidate acceptance and outreach", () => {
             reason: "opt_out",
           },
         ],
-        channel: "email",
-        now: NOW,
+        ...outreach,
       }).reason,
     ).toBe("suppressed");
+
+    // One opt-out only covers the address that opted out.
+    expect(
+      canRequestOutreach({
+        candidate: candidate(),
+        accepted: [acceptedLead],
+        suppressions: [
+          {
+            tenantId: "tenant-alpha-01",
+            channel: "email",
+            value: "otro@example.test",
+            reason: "opt_out",
+          },
+        ],
+        ...outreach,
+      }),
+    ).toEqual({ allowed: true });
   });
 });
 

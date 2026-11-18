@@ -133,6 +133,18 @@ describe("discounts", () => {
     ).toBe("VALIDATION_FAILED");
   });
 
+  it("refuses an unsupported rounding policy instead of crashing", () => {
+    expect(
+      codeOf(() =>
+        applyDiscountBasisPoints({ amount: "100.00", currency: "EUR" }, 500, {
+          rounding: "BANKERS",
+          exponent: 2,
+          policyVersion: "q1",
+        } as never),
+      ),
+    ).toBe("ROUNDING_UNSUPPORTED");
+  });
+
   it("rounds only at the end of the calculus", () => {
     const discounted = applyDiscountBasisPoints(
       { amount: "0.03", currency: "EUR" },

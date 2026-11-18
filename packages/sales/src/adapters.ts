@@ -145,8 +145,17 @@ export function modelToolSurface(): readonly string[] {
   return [...INITIAL_MODEL_TOOLS];
 }
 
+/**
+ * Deny by default: only the named, read/propose tool surface is callable by
+ * the model. A prefix blacklist let `sales_send_email` or any other effect
+ * through simply because it was not called `approve`.
+ */
 export function assertCapabilityAllowed(capability: string): void {
-  if (!modelToolSurface().includes(capability) && capability.startsWith("sales_approve")) {
-    throw new ServiceError("CAPABILITY_NOT_GRANTED", "approval cannot be a model tool");
+  if (!modelToolSurface().includes(capability)) {
+    throw new ServiceError(
+      "CAPABILITY_NOT_GRANTED",
+      "capability is not part of the model tool surface",
+      { details: { capability } },
+    );
   }
 }

@@ -105,6 +105,20 @@ describe("forecast", () => {
         }),
       ),
     ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        buildForecast({
+          id: "forecast-05",
+          probabilityVersion: "p",
+          scenarios: [
+            { stage: "qualified", amount: { amount: "10.00", currency: "EUR" }, probabilityBasisPoints: 5000 },
+          ],
+          accountsWithAmount: -1,
+          accountsTotal: 0,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
   });
 });
 

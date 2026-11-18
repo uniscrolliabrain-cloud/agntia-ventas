@@ -140,6 +140,8 @@ describe("authentication", () => {
     expect(body.data.actor.tenantId).toBe("tenant-alpha-01");
     expect(body.data.role).toBe("reviewer");
     expect(body.data.scopes).toEqual(["sales.pipeline:read", "sales.quote:propose"]);
+    // Principal data is per-user and must never be cached by an intermediary.
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
   it("fails closed when the user has no membership in that tenant", async () => {

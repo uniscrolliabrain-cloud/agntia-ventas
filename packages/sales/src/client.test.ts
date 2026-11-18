@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ServiceError } from "@agntia-ventas/contracts";
 import { createSalesApiClient } from "./client.ts";
 import type { FetchLike } from "./crm.ts";
@@ -22,12 +22,24 @@ const quoteResponse = {
 };
 
 describe("sales api client", () => {
-  it("parses a preview response", async () => {
-    const client = createSalesApiClient({ ...config, fetchImpl: respond(quoteResponse) });
+  it("parses a preview response and never follows a redirect", async () => {
+    const fetchImpl = vi.fn<FetchLike>(respond(quoteResponse));
+    const client = createSalesApiClient({ ...config, fetchImpl });
     await expect(client.quotePreview({ lines: [] })).resolves.toEqual({
       currency: "EUR",
       total: "45.96",
     });
+    expect(fetchImpl.mock.calls[0]?.[1].redirect).toBe("error");
+  });
+
+  it("refuses a base URL that would send the bearer token in clear text", () => {
+    expect(() =>
+      createSalesApiClient({
+        ...config,
+        baseUrl: "http://api.sales.test",
+        fetchImpl: respond(quoteResponse),
+      }),
+    ).toThrow(/https/);
   });
 
   it("surfaces the server error code instead of a generic failure", async () => {

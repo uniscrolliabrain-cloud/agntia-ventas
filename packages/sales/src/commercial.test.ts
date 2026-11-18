@@ -108,6 +108,32 @@ describe("meetings", () => {
       ),
     ).toBe("VALIDATION_FAILED");
   });
+
+  it("refuses an unreadable start or an unknown timezone", () => {
+    expect(
+      codeOf(() =>
+        proposeMeeting({
+          id: "meeting-06",
+          operationKey: "op-05",
+          startUtc: "tomorrow",
+          timeZone: "Europe/Madrid",
+          attendees: ["user-alpha-01"],
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        proposeMeeting({
+          id: "meeting-07",
+          operationKey: "op-06",
+          startUtc: "2026-07-01T10:00:00Z",
+          timeZone: "Mars/Olympus",
+          attendees: ["user-alpha-01"],
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
 });
 
 describe("supervised email", () => {

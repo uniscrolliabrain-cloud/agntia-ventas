@@ -85,6 +85,12 @@ describe("quote repository", () => {
     expect(
       await codeOf(quotes.save(ALPHA, { ...quote, contentHash: "sha256:bbbb" })),
     ).toBe("IDEMPOTENCY_CONFLICT");
+    // Same totals, another opportunity is still another quote.
+    expect(
+      await codeOf(
+        quotes.save(ALPHA, { ...quote, opportunityId: "opportunity-beta-02" }),
+      ),
+    ).toBe("IDEMPOTENCY_CONFLICT");
   });
 
   it("does not expose another tenant's quote", async () => {
@@ -139,6 +145,16 @@ describe("approval repository", () => {
     expect(
       await codeOf(approvals.save(ALPHA, { ...approval, payloadHash: "sha256:other" })),
     ).toBe("IDEMPOTENCY_CONFLICT");
+    // The whole binding is the payload: a new recipient or ceiling cannot be
+    // silently answered with the old approval.
+    expect(
+      await codeOf(
+        approvals.save(ALPHA, { ...approval, recipient: "otra@example.test" }),
+      ),
+    ).toBe("IDEMPOTENCY_CONFLICT");
+    expect(
+      await codeOf(approvals.save(ALPHA, { ...approval, costCeiling: "999.00" })),
+    ).toBe("IDEMPOTENCY_CONFLICT");
   });
 });
 
@@ -169,5 +185,17 @@ describe("budget repository", () => {
     expect(await codeOf(budgets.reserve({ ...reservation, amount: "11.00" }))).toBe(
       "IDEMPOTENCY_CONFLICT",
     );
+  });
+
+  it("maps a duplicate id race to an idempotency conflict", async () => {
+    const { budgets } = await setup();
+    await budgets.reserve(reservation);
+
+    // The operation-key pre-check misses; the primary key still rejects it.
+    expect(
+      await codeOf(
+        budgets.reserve({ ...reservation, operationKey: "operation-budget-0002" }),
+      ),
+    ).toBe("IDEMPOTENCY_CONFLICT");
   });
 });

@@ -142,6 +142,8 @@ export function runPilotVertical(fixture: PilotFixture): PilotResult {
       : fixture.accepted,
     suppressions: fixture.suppressions,
     channel: "email",
+    purpose: "pilot outreach",
+    recipient: fixture.contact.channels[0]?.value ?? "contact@example.test",
     now: fixture.now,
   });
   steps.push({

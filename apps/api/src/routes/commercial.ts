@@ -96,7 +96,8 @@ export const QuoteBodySchema = z
       })
       .strict()
       .optional(),
-    now: z.string().datetime({ offset: true }).optional(),
+    // The clock is server-side: a caller-supplied `now` would let a client
+    // price against an expired catalog, price book or discount mandate.
   })
   .strict();
 
@@ -230,7 +231,7 @@ export function registerCommercialRoutes(
 
   route("/v1/ventas/quotes/preview", "sales.quote:propose", async (context, tenantId) => {
     const body = await readBody(context, QuoteBodySchema);
-    const now = body.now ?? new Date().toISOString();
+    const now = new Date().toISOString();
 
     const totals = computeQuote({
       tenantId,

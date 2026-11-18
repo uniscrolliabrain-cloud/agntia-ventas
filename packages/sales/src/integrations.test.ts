@@ -152,6 +152,8 @@ describe("crm gateway", () => {
     });
     expect(receipt.receiptId).toBe("note-01");
     expect(fetchImpl.mock.calls[0]?.[1].headers["idempotency-key"]).toBe("operation-0001");
+    // A 30x would leave the allowlisted host, so redirects are an error.
+    expect(fetchImpl.mock.calls[0]?.[1].redirect).toBe("error");
   });
 });
 
@@ -254,6 +256,34 @@ describe("parent bridge", () => {
     expect(BRIDGE_STATUS.transport).toBe("NOT_VERIFIED");
   });
 
+  it("bounds the payload and refuses values JSON cannot represent", () => {
+    expect(
+      codeOf(() =>
+        mapToParentEvent({
+          type: "ventas.quote.updated",
+          tenantId: "tenant-alpha-01",
+          operationId: "operation-0001",
+          occurredAt: "2026-11-15T10:00:00Z",
+          payload: { blob: "a".repeat(70 * 1024) },
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    const circular: Record<string, unknown> = {};
+    circular["self"] = circular;
+    expect(
+      codeOf(() =>
+        mapToParentEvent({
+          type: "ventas.quote.updated",
+          tenantId: "tenant-alpha-01",
+          operationId: "operation-0001",
+          occurredAt: "2026-11-15T10:00:00Z",
+          payload: circular,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
+
   it("refuses internal fields and unknown event types", () => {
     expect(
       codeOf(() =>
@@ -266,6 +296,21 @@ describe("parent bridge", () => {
         }),
       ),
     ).toBe("VALIDATION_FAILED");
+
+    // Separators and case do not smuggle an internal field past the filter.
+    for (const key of ["api_key", "internal_notes", "raw_provider_response", "API-KEY"]) {
+      expect(
+        codeOf(() =>
+          mapToParentEvent({
+            type: "ventas.quote.updated",
+            tenantId: "tenant-alpha-01",
+            operationId: "operation-0001",
+            occurredAt: "2026-11-15T10:00:00Z",
+            payload: { [key]: "leak" },
+          }),
+        ),
+      ).toBe("VALIDATION_FAILED");
+    }
 
     expect(
       codeOf(() =>
@@ -308,6 +353,19 @@ describe("model costs", () => {
     });
     expect(usage.exceeded).toBe(true);
     expect(usage.remaining.amount).toBe("-0.500000");
+  });
+
+  it("refuses an invalid rounding policy instead of crashing", () => {
+    expect(
+      codeOf(() =>
+        estimateModelCost({
+          price,
+          inputTokens: 1,
+          outputTokens: 1,
+          policy: { rounding: "BANKERS", exponent: 2, policyVersion: "q1" } as never,
+        }),
+      ),
+    ).toBe("ROUNDING_UNSUPPORTED");
   });
 
   it("rejects mixed currencies and negative tokens", () => {

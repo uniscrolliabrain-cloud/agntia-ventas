@@ -67,7 +67,12 @@ export function assertApprovalCovers(
   if (approval.tenantId !== request.tenantId) {
     throw new ServiceError("APPROVAL_INVALID", "approval belongs to another tenant");
   }
-  if (new Date(approval.expiresAt) <= new Date(request.now)) {
+  const expiresAt = Date.parse(approval.expiresAt);
+  const now = Date.parse(request.now);
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(now)) {
+    throw new ServiceError("APPROVAL_INVALID", "approval or request time is unreadable");
+  }
+  if (expiresAt <= now) {
     throw new ServiceError("APPROVAL_EXPIRED", "approval expired");
   }
   if (approval.revocationVersion !== request.currentRevocationVersion) {
@@ -122,9 +127,41 @@ export interface BudgetReservation {
   readonly status: "reserved" | "consumed" | "released";
 }
 
+function fractionalDigits(amount: string): number {
+  const index = amount.indexOf(".");
+  return index === -1 ? 0 : amount.length - index - 1;
+}
+
+/**
+ * Remaining balance after every reservation that still holds budget. It keeps
+ * the widest scale in play instead of rounding to cents, and refuses to add
+ * reservations in another currency as if they were the same money.
+ */
+function remainingAfter(
+  available: Money,
+  reservations: readonly BudgetReservation[],
+): Money {
+  let spent = new Decimal(0);
+  let scale = fractionalDigits(available.amount);
+  for (const item of reservations) {
+    if (item.status === "released") continue;
+    if (item.amount.currency !== available.currency) {
+      throw new ServiceError("CURRENCY_MISMATCH", "reservation currency differs from budget");
+    }
+    spent = spent.plus(item.amount.amount);
+    scale = Math.max(scale, fractionalDigits(item.amount.amount));
+  }
+  return {
+    amount: new Decimal(available.amount).minus(spent).toFixed(scale),
+    currency: available.currency,
+    exponent: scale,
+  };
+}
+
 /**
  * Reservation is transactional per operationKey: a retry reuses it, and two
- * concurrent operations can never spend the last unit twice.
+ * concurrent operations can never spend the last unit twice. A replay returns
+ * the balance that actually remains, not the original ceiling.
  */
 export function reserveBudget(input: {
   available: Money;
@@ -136,35 +173,39 @@ export function reserveBudget(input: {
   if (available.currency !== amount.currency) {
     throw new ServiceError("CURRENCY_MISMATCH", "budget currency differs");
   }
+  if (!new Decimal(amount.amount).isPositive()) {
+    throw new ServiceError("VALIDATION_FAILED", "budget reservation must be positive");
+  }
   const existing = input.reservations.find(
     (item) => item.operationKey === input.operationKey,
   );
   if (existing) {
-    if (existing.amount.amount !== amount.amount) {
+    if (
+      existing.amount.currency !== amount.currency ||
+      !new Decimal(existing.amount.amount).equals(amount.amount)
+    ) {
       throw new ServiceError("IDEMPOTENCY_CONFLICT", "same key with a different amount");
     }
-    return { reservation: existing, remaining: available, reused: true };
+    return {
+      reservation: existing,
+      remaining: remainingAfter(available, input.reservations),
+      reused: true,
+    };
   }
 
-  const spent = input.reservations
-    .filter((item) => item.status !== "released")
-    .reduce((total, item) => total.plus(item.amount.amount), new Decimal(0));
-  const remaining = new Decimal(available.amount).minus(spent).minus(amount.amount);
-  if (remaining.isNegative()) {
+  const reservation: BudgetReservation = {
+    operationKey: input.operationKey,
+    amount,
+    status: "reserved",
+  };
+  const remaining = remainingAfter(available, [...input.reservations, reservation]);
+  if (new Decimal(remaining.amount).isNegative()) {
     throw new ServiceError("BUDGET_EXCEEDED", "budget reservation exceeds the remaining balance", {
       details: { available: available.amount, requested: amount.amount },
     });
   }
 
-  return {
-    reservation: { operationKey: input.operationKey, amount, status: "reserved" },
-    remaining: {
-      amount: remaining.toFixed(2),
-      currency: available.currency,
-      exponent: 2,
-    },
-    reused: false,
-  };
+  return { reservation, remaining, reused: false };
 }
 
 export function reconcileReservation(input: {

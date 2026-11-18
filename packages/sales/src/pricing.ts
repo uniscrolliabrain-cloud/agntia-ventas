@@ -35,10 +35,15 @@ function taxOn(net: Money, basisPoints: number, policy: RoundingPolicy): Money {
   return { amount: amount.toFixed(policy.exponent), currency: net.currency };
 }
 
-/** A stale catalog cannot support a delivery claim. */
+/**
+ * A stale catalog cannot support a delivery claim. An unreadable expiry is a
+ * stale catalog, not a fresh one: `Date` comparisons against `NaN` are false.
+ */
 export function assertCatalogFresh(product: Product, now: string): void {
-  if (new Date(product.validUntil) <= new Date(now)) {
-    throw new ServiceError("CATALOG_STALE", "catalog entry expired", {
+  const validUntil = Date.parse(product.validUntil);
+  const nowMs = Date.parse(now);
+  if (!Number.isFinite(validUntil) || !Number.isFinite(nowMs) || validUntil <= nowMs) {
+    throw new ServiceError("CATALOG_STALE", "catalog entry expired or unreadable", {
       details: { productRef: product.id, validUntil: product.validUntil },
     });
   }
@@ -64,14 +69,29 @@ export function resolvePrice(
   productRef: string,
   now: string,
 ): PriceEntry {
-  const at = new Date(now).getTime();
-  const entry = priceBook.entries.find(
-    (candidate) =>
-      candidate.productRef === productRef &&
-      new Date(candidate.effectiveFrom).getTime() <= at &&
-      (candidate.effectiveTo === undefined ||
-        new Date(candidate.effectiveTo).getTime() > at),
-  );
+  const at = Date.parse(now);
+  if (!Number.isFinite(at)) {
+    throw new ServiceError("VALIDATION_FAILED", "price resolution time is unreadable");
+  }
+  const entry = priceBook.entries.find((candidate) => {
+    if (candidate.productRef !== productRef) return false;
+    const from = Date.parse(candidate.effectiveFrom);
+    if (!Number.isFinite(from)) {
+      // An unreadable window is stale data, never an open-ended price.
+      throw new ServiceError("PRICE_STALE", "price window start is unreadable", {
+        details: { productRef },
+      });
+    }
+    if (from > at) return false;
+    if (candidate.effectiveTo === undefined) return true;
+    const to = Date.parse(candidate.effectiveTo);
+    if (!Number.isFinite(to)) {
+      throw new ServiceError("PRICE_STALE", "price window end is unreadable", {
+        details: { productRef },
+      });
+    }
+    return to > at;
+  });
   if (!entry) {
     throw new ServiceError("PRICE_STALE", "no effective price for product", {
       details: { productRef, priceBook: priceBook.id, version: priceBook.version },
@@ -85,12 +105,16 @@ export function resolvePrice(
 
 /**
  * Totals are decimal and reproducible. Order of operations:
- * unit x quantity -> line discount -> sum -> order discount -> tax per line.
- * Tax comes only from an approved mapping: it is never inferred.
+ * unit x quantity -> line discount -> line tax -> sum -> order discount ->
+ * total. Tax is computed per line on the line net and comes only from an
+ * approved mapping: it is never inferred.
  */
 export function computeQuote(request: QuoteRequest): QuoteTotals {
   if (request.lines.length === 0) {
     throw new ServiceError("VALIDATION_FAILED", "quote needs at least one line");
+  }
+  if (request.priceBook.tenantId !== request.tenantId) {
+    throw new ServiceError("TENANT_MISMATCH", "price book belongs to another tenant");
   }
   const currency = request.priceBook.currency;
   const lines: QuoteLineTotal[] = [];
@@ -122,6 +146,15 @@ export function computeQuote(request: QuoteRequest): QuoteTotals {
     const rule = request.taxRules.find((item) => item.productRef === line.productRef);
     if (!rule || !rule.sourceRef) {
       throw new ServiceError("TAX_MAPPING_MISSING", "no approved tax rule for product", {
+        details: { productRef: line.productRef },
+      });
+    }
+    if (
+      !Number.isInteger(rule.rateBasisPoints) ||
+      rule.rateBasisPoints < 0 ||
+      rule.rateBasisPoints > 10_000
+    ) {
+      throw new ServiceError("VALIDATION_FAILED", "tax rate out of range", {
         details: { productRef: line.productRef },
       });
     }
@@ -176,8 +209,18 @@ export function assertDiscountWithinMandate(input: {
   now: string;
 }): void {
   const { quote, mandate } = input;
-  if (new Date(mandate.expiresAt) <= new Date(input.now)) {
-    throw new ServiceError("MANDATE_EXPIRED", "discount mandate expired");
+  if (
+    !Number.isInteger(mandate.maxRateBasisPoints) ||
+    mandate.maxRateBasisPoints < 0 ||
+    mandate.maxRateBasisPoints > 10_000
+  ) {
+    throw new ServiceError("VALIDATION_FAILED", "discount mandate rate out of range");
+  }
+  const expiresAt = Date.parse(mandate.expiresAt);
+  const now = Date.parse(input.now);
+  // An unreadable expiry cannot prove the mandate is still valid.
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(now) || expiresAt <= now) {
+    throw new ServiceError("MANDATE_EXPIRED", "discount mandate expired or unreadable");
   }
 
   const totalDiscount = addMoney(quote.lineDiscount, quote.orderDiscount);

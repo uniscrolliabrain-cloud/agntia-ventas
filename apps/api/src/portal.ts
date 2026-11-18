@@ -1,10 +1,19 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
+import { z } from "zod";
 import { ServiceError } from "@agntia-ventas/contracts";
 import type { CommercialRepository, QuoteRecord } from "@agntia-ventas/persistence";
 import type { AppDependencies, AppEnvironment } from "./auth.ts";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,2048}\.[a-f0-9]{64}$/;
+
+const PortalClaimsSchema = z
+  .object({
+    t: z.string().min(1).max(128),
+    q: z.string().min(1).max(128),
+    e: z.string().datetime({ offset: true }),
+  })
+  .strict();
 
 function sign(secret: string, payload: string): string {
   return createHmac("sha256", secret).update(payload, "utf8").digest("hex");
@@ -46,16 +55,26 @@ export function verifyPortalToken(input: {
     throw new ServiceError("AUTH_INVALID", "portal token signature does not match");
   }
 
-  let claims: { t: string; q: string; e: string };
+  let decoded: unknown;
   try {
-    claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
   } catch {
     throw new ServiceError("AUTH_INVALID", "portal token payload is unreadable");
   }
-  if (new Date(claims.e).getTime() <= new Date(input.now).getTime()) {
+  const claims = PortalClaimsSchema.safeParse(decoded);
+  if (!claims.success) {
+    throw new ServiceError("AUTH_INVALID", "portal token claims are unknown");
+  }
+  const nowMs = Date.parse(input.now);
+  const expiresMs = Date.parse(claims.data.e);
+  if (!Number.isFinite(nowMs) || !Number.isFinite(expiresMs) || expiresMs <= nowMs) {
     throw new ServiceError("AUTH_EXPIRED", "portal link expired");
   }
-  return { tenantId: claims.t, quoteId: claims.q, expiresAt: claims.e };
+  return {
+    tenantId: claims.data.t,
+    quoteId: claims.data.q,
+    expiresAt: claims.data.e,
+  };
 }
 
 function escapeHtml(value: string): string {

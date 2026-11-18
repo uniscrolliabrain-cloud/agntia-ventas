@@ -12,6 +12,8 @@ export type FetchLike = (
   url: string,
   init: {
     readonly method: string;
+    /** A redirect is never followed: a 30x could leave the allowlisted host. */
+    readonly redirect: "error";
     readonly headers: Readonly<Record<string, string>>;
     readonly body?: string;
     readonly signal: AbortSignal;
@@ -98,44 +100,55 @@ export function createCrmGateway(config: CrmGatewayConfig): CrmGateway {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    let response: FetchResponse;
+    // The timeout covers the body read too: a provider that sends headers and
+    // then stalls must not hang the caller indefinitely.
     try {
-      response = await config.fetchImpl(url, {
-        method: init.method,
-        headers: {
-          authorization: `Bearer ${token}`,
-          accept: "application/json",
-          ...(init.body ? { "content-type": "application/json" } : {}),
-          ...(init.operationId ? { "idempotency-key": init.operationId } : {}),
-        },
-        ...(init.body ? { body: init.body } : {}),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (controller.signal.aborted) {
-        throw new ServiceError("PROVIDER_TIMEOUT", "crm request timed out", {
+      let response: FetchResponse;
+      try {
+        response = await config.fetchImpl(url, {
+          method: init.method,
+          redirect: "error",
+          headers: {
+            authorization: `Bearer ${token}`,
+            accept: "application/json",
+            ...(init.body ? { "content-type": "application/json" } : {}),
+            ...(init.operationId ? { "idempotency-key": init.operationId } : {}),
+          },
+          ...(init.body ? { body: init.body } : {}),
+          signal: controller.signal,
+        });
+      } catch {
+        if (controller.signal.aborted) {
+          throw new ServiceError("PROVIDER_TIMEOUT", "crm request timed out", {
+            retryable: true,
+            reconciliationRequired: true,
+          });
+        }
+        throw new ServiceError("PROVIDER_UNAVAILABLE", "crm request failed", {
           retryable: true,
-          reconciliationRequired: true,
         });
       }
-      throw new ServiceError("PROVIDER_UNAVAILABLE", "crm request failed", {
-        retryable: true,
-      });
+
+      if (!response.ok) {
+        throw new ServiceError("PROVIDER_UNAVAILABLE", "crm answered with an error", {
+          retryable: response.status >= 500,
+          details: { status: response.status },
+        });
+      }
+
+      try {
+        return await response.json();
+      } catch {
+        if (controller.signal.aborted) {
+          throw new ServiceError("PROVIDER_TIMEOUT", "crm response body timed out", {
+            retryable: true,
+            reconciliationRequired: true,
+          });
+        }
+        throw new ServiceError("PROVIDER_INVALID_RESPONSE", "crm body is not JSON");
+      }
     } finally {
       clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-      throw new ServiceError("PROVIDER_UNAVAILABLE", "crm answered with an error", {
-        retryable: response.status >= 500,
-        details: { status: response.status },
-      });
-    }
-
-    try {
-      return await response.json();
-    } catch {
-      throw new ServiceError("PROVIDER_INVALID_RESPONSE", "crm body is not JSON");
     }
   }
 

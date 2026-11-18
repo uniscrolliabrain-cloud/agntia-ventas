@@ -159,6 +159,16 @@ describe("order and renewal", () => {
         approvalRef: null,
       }).requiresApproval,
     ).toBe(false);
+
+    // Same money with another scale is not a price change.
+    expect(
+      proposeRenewal({
+        id: "renewal-03",
+        previousPrice: { amount: "19.9", currency: "EUR" },
+        proposedPrice: { amount: "19.90", currency: "EUR" },
+        approvalRef: null,
+      }).requiresApproval,
+    ).toBe(false);
   });
 });
 
@@ -182,5 +192,18 @@ describe("restore", () => {
   it("declares CI and backups as not configured", () => {
     expect(OPERATIONS_STATUS.ci).toBe("NOT_CONFIGURED");
     expect(OPERATIONS_STATUS.backups).toBe("NOT_CONFIGURED");
+  });
+});
+
+describe("secret material", () => {
+  it("recognizes provider token formats beyond the legacy sk- prefix", () => {
+    for (const value of [
+      "sk_live_abcdefghijklmnop",
+      "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+      "AKIAIOSFODNN7EXAMPLE",
+      "xoxb-1234567890-abcdefghij",
+    ]) {
+      expect(codeOf(() => assertNoSecretMaterial(value))).toBe("VALIDATION_FAILED");
+    }
   });
 });

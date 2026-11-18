@@ -189,7 +189,6 @@ function quoteBody(overrides: Record<string, unknown> = {}): Record<string, unkn
       { productRef: "product-alpha-01", rateBasisPoints: 2100, sourceRef: "tax-source-01" },
     ],
     policy: { rounding: "HALF_UP", exponent: 2, policyVersion: "q1" },
-    now: "2026-11-15T10:00:00Z",
     ...overrides,
   };
 }

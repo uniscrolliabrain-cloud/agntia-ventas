@@ -40,6 +40,10 @@ export interface SalesApiClient {
  */
 export function createSalesApiClient(config: SalesApiClientConfig): SalesApiClient {
   const base = new URL(config.baseUrl);
+  // The bearer token must never travel in clear text or to an odd scheme.
+  if (base.protocol !== "https:") {
+    throw new ServiceError("VALIDATION_FAILED", "client baseUrl must use https");
+  }
 
   async function call(path: string, body: unknown): Promise<unknown> {
     const token = await config.getToken();
@@ -50,50 +54,61 @@ export function createSalesApiClient(config: SalesApiClientConfig): SalesApiClie
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), config.timeoutMs ?? 15_000);
     let response;
+    // The timeout stays armed until the body is read.
     try {
-      response = await config.fetchImpl(new URL(path, base).toString(), {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-    } catch {
-      if (controller.signal.aborted) {
-        throw new ServiceError("PROVIDER_TIMEOUT", "preview request timed out", {
+      try {
+        response = await config.fetchImpl(new URL(path, base).toString(), {
+          method: "POST",
+          redirect: "error",
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch {
+        if (controller.signal.aborted) {
+          throw new ServiceError("PROVIDER_TIMEOUT", "preview request timed out", {
+            retryable: true,
+            reconciliationRequired: true,
+          });
+        }
+        throw new ServiceError("PROVIDER_UNAVAILABLE", "preview request failed", {
           retryable: true,
-          reconciliationRequired: true,
         });
       }
-      throw new ServiceError("PROVIDER_UNAVAILABLE", "preview request failed", {
-        retryable: true,
-      });
-    } finally {
-      clearTimeout(timer);
-    }
 
-    let payload: unknown;
-    try {
-      payload = await response.json();
-    } catch {
-      throw new ServiceError("PROVIDER_INVALID_RESPONSE", "response is not JSON");
-    }
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        if (controller.signal.aborted) {
+          throw new ServiceError("PROVIDER_TIMEOUT", "preview response body timed out", {
+            retryable: true,
+            reconciliationRequired: true,
+          });
+        }
+        throw new ServiceError("PROVIDER_INVALID_RESPONSE", "response is not JSON");
+      }
 
-    if (!response.ok) {
+      if (!response.ok) {
       const parsed = ErrorEnvelopeSchema.safeParse(payload);
       if (!parsed.success) {
         throw new ServiceError("PROVIDER_INVALID_RESPONSE", "error envelope is unknown", {
           details: { status: response.status },
         });
       }
-      const { code, message, retryable, reconciliationRequired, details } = parsed.data.error;
-      throw new ServiceError(code, message, {
-        retryable,
-        reconciliationRequired,
-        ...(details ? { details } : {}),
-      });
-    }
+        const { code, message, retryable, reconciliationRequired, details } =
+          parsed.data.error;
+        throw new ServiceError(code, message, {
+          retryable,
+          reconciliationRequired,
+          ...(details ? { details } : {}),
+        });
+      }
 
-    return payload;
+      return payload;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   return {

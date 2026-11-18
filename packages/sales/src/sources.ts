@@ -173,69 +173,89 @@ export async function fetchSourceExcerpt(input: {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response: SourceHttpResponse;
+
+  // The timeout covers the body read: a server that sends headers and then
+  // stalls cannot keep the fetch alive past the deadline.
   try {
-    response = await input.fetchImpl(target.toString(), {
-      method: "GET",
-      redirect: "error",
-      headers: {
-        accept: ALLOWED_MEDIA_TYPES.join(", "),
-        "user-agent": "agntia-ventas-source/1",
-      },
-      signal: controller.signal,
-    });
-  } catch {
-    if (controller.signal.aborted) {
-      throw new ServiceError("PROVIDER_TIMEOUT", "source request timed out", {
+    let response: SourceHttpResponse;
+    try {
+      response = await input.fetchImpl(target.toString(), {
+        method: "GET",
+        redirect: "error",
+        headers: {
+          accept: ALLOWED_MEDIA_TYPES.join(", "),
+          "user-agent": "agntia-ventas-source/1",
+        },
+        signal: controller.signal,
+      });
+    } catch {
+      if (controller.signal.aborted) {
+        throw new ServiceError("PROVIDER_TIMEOUT", "source request timed out", {
+          retryable: true,
+        });
+      }
+      throw new ServiceError(
+        "PROVIDER_UNAVAILABLE",
+        "source request failed; redirects are not followed",
+        { retryable: true },
+      );
+    }
+
+    if (!response.ok) {
+      throw new ServiceError("PROVIDER_UNAVAILABLE", "source answered with an error", {
+        retryable: response.status >= 500,
+        details: { status: response.status },
+      });
+    }
+
+    const mediaType = mediaTypeOf(response.headers.get("content-type"));
+    if (
+      !mediaType ||
+      !ALLOWED_MEDIA_TYPES.includes(mediaType as (typeof ALLOWED_MEDIA_TYPES)[number])
+    ) {
+      throw new ServiceError("PROVIDER_INVALID_RESPONSE", "unsupported source media type", {
+        details: { mediaType },
+      });
+    }
+
+    let raw: string;
+    try {
+      raw = await response.text();
+    } catch {
+      if (controller.signal.aborted) {
+        throw new ServiceError("PROVIDER_TIMEOUT", "source body timed out", {
+          retryable: true,
+        });
+      }
+      throw new ServiceError("PROVIDER_UNAVAILABLE", "source body could not be read", {
         retryable: true,
       });
     }
-    throw new ServiceError(
-      "PROVIDER_UNAVAILABLE",
-      "source request failed; redirects are not followed",
-      { retryable: true },
-    );
+    if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+      throw new ServiceError("PROVIDER_INVALID_RESPONSE", "source exceeds the size limit", {
+        details: { maxBytes },
+      });
+    }
+
+    const text = mediaType === "text/html" ? htmlToText(raw) : raw.trim();
+    if (text.length === 0) {
+      throw new ServiceError("PROVIDER_INVALID_RESPONSE", "source has no readable text");
+    }
+
+    const contentHash = `sha256:${createHash("sha256").update(raw, "utf8").digest("hex")}`;
+    return {
+      sourceRef: `source:${target.hostname}:${contentHash.slice(7, 19)}`,
+      url: target.toString(),
+      fetchedAt: input.now,
+      contentHash,
+      mediaType,
+      text,
+      trust: "untrusted",
+      injectionSignals: detectInjectionSignals(text),
+    };
   } finally {
     clearTimeout(timer);
   }
-
-  if (!response.ok) {
-    throw new ServiceError("PROVIDER_UNAVAILABLE", "source answered with an error", {
-      retryable: response.status >= 500,
-      details: { status: response.status },
-    });
-  }
-
-  const mediaType = mediaTypeOf(response.headers.get("content-type"));
-  if (!mediaType || !ALLOWED_MEDIA_TYPES.includes(mediaType as (typeof ALLOWED_MEDIA_TYPES)[number])) {
-    throw new ServiceError("PROVIDER_INVALID_RESPONSE", "unsupported source media type", {
-      details: { mediaType },
-    });
-  }
-
-  const raw = await response.text();
-  if (Buffer.byteLength(raw, "utf8") > maxBytes) {
-    throw new ServiceError("PROVIDER_INVALID_RESPONSE", "source exceeds the size limit", {
-      details: { maxBytes },
-    });
-  }
-
-  const text = mediaType === "text/html" ? htmlToText(raw) : raw.trim();
-  if (text.length === 0) {
-    throw new ServiceError("PROVIDER_INVALID_RESPONSE", "source has no readable text");
-  }
-
-  const contentHash = `sha256:${createHash("sha256").update(raw, "utf8").digest("hex")}`;
-  return {
-    sourceRef: `source:${target.hostname}:${contentHash.slice(7, 19)}`,
-    url: target.toString(),
-    fetchedAt: input.now,
-    contentHash,
-    mediaType,
-    text,
-    trust: "untrusted",
-    injectionSignals: detectInjectionSignals(text),
-  };
 }
 
 function normalise(value: string): string {

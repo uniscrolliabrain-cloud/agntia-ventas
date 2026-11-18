@@ -209,7 +209,7 @@ export interface SequenceState {
 export interface ActivityRecord {
   readonly id: string;
   readonly tenantId: string;
-  readonly kind: "call" | "meeting" | "email" | "note";
+  readonly kind: "call" | "meeting" | "email" | "note" | "task";
   readonly status: "planned" | "confirmed" | "outcome_unknown";
   readonly receiptRef?: string;
   readonly occurredAt: string;

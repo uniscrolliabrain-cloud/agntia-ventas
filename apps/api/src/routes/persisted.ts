@@ -93,7 +93,7 @@ export function registerPersistedRoutes(
   write("/v1/ventas/quotes", "sales.quote:propose", async (context, tenantId) => {
     const body = await readBody(context, PersistedQuoteSchema);
     const stores = requireCommercial(dependencies);
-    const now = body.now ?? new Date().toISOString();
+    const now = new Date().toISOString();
 
     const totals = computeQuote({
       tenantId,

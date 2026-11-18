@@ -155,18 +155,24 @@ export function applyDiscountBasisPoints(
   basisPoints: number,
   policy: RoundingPolicy,
 ): Money {
+  const parsedPolicy = RoundingPolicySchema.safeParse(policy);
+  if (!parsedPolicy.success) {
+    throw new ServiceError("ROUNDING_UNSUPPORTED", "invalid rounding policy", {
+      details: { issues: parsedPolicy.error.issues.map((issue) => issue.message) },
+    });
+  }
   if (!Number.isInteger(basisPoints) || basisPoints < 0 || basisPoints > 10_000) {
     throw new ServiceError("VALIDATION_FAILED", "basisPoints must be an integer in [0,10000]");
   }
   const factor = new Decimal(basisPoints).dividedBy(10_000);
   const discounted = toDecimal(base.amount).times(new Decimal(1).minus(factor));
   const rounded = discounted.toDecimalPlaces(
-    policy.exponent,
-    ROUNDING_MODES[policy.rounding],
+    parsedPolicy.data.exponent,
+    ROUNDING_MODES[parsedPolicy.data.rounding],
   );
   return {
-    amount: rounded.toFixed(policy.exponent),
+    amount: rounded.toFixed(parsedPolicy.data.exponent),
     currency: base.currency,
-    exponent: policy.exponent,
+    exponent: parsedPolicy.data.exponent,
   };
 }

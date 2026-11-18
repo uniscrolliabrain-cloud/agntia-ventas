@@ -112,6 +112,14 @@ export function proposeMeeting(input: {
   }
 
   const start = new Date(input.startUtc);
+  if (!Number.isFinite(start.getTime())) {
+    throw new ServiceError("VALIDATION_FAILED", "meeting start is not a timestamp");
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: input.timeZone });
+  } catch {
+    throw new ServiceError("VALIDATION_FAILED", "meeting timezone is not an IANA zone");
+  }
   const before = offsetMinutes(new Date(start.getTime() - 30 * 60_000), input.timeZone);
   const after = offsetMinutes(new Date(start.getTime() + 30 * 60_000), input.timeZone);
   const ambiguous = before !== after;

@@ -109,6 +109,42 @@ describe("domain tables under RLS", () => {
     ).rejects.toThrow(/check constraint/i);
   });
 
+  it("accepts the stages, handoff states and suppression reasons the domain emits", async () => {
+    const { client } = await createHarness();
+    await seed(client);
+    const session = createTenantSession(client);
+
+    // `in_review` exists in the domain FSM but was missing from the old check.
+    const moved = await session.withTenant(ALPHA, (tx) =>
+      tx.query<{ stage: string }>(
+        `update app.opportunities set stage = 'in_review'
+          where tenant_id = 'tenant-alpha-01' and id = 'opportunity-alpha-01'
+          returning stage`,
+      ),
+    );
+    expect(moved.rows[0]?.stage).toBe("in_review");
+
+    // `returned` handoffs and `manual` suppressions are valid domain values.
+    const handoff = await session.withTenant(ALPHA, (tx) =>
+      tx.query<{ status: string }>(
+        `insert into app.handoffs
+           (id, tenant_id, opportunity_id, receiver_ref, status)
+         values ('handoff-alpha-returned', 'tenant-alpha-01',
+                 'opportunity-alpha-01', 'receiver-01', 'returned')
+         returning status`,
+      ),
+    );
+    expect(handoff.rows[0]?.status).toBe("returned");
+
+    await session.withTenant(ALPHA, (tx) =>
+      tx.query(
+        `insert into app.suppressions (id, tenant_id, channel, value, reason)
+         values ('suppression-alpha-manual', 'tenant-alpha-01', 'email',
+                 'manual@example.test', 'manual')`,
+      ),
+    );
+  });
+
   it("records a confirmed activity with its receipt", async () => {
     const { client } = await createHarness();
     await seed(client);

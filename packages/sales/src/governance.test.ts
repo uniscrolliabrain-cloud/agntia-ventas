@@ -146,6 +146,15 @@ describe("approvals", () => {
     ).toEqual(["resourceVersion", "channel"]);
   });
 
+  it("refuses an unreadable expiry instead of treating it as valid", () => {
+    expect(
+      codeOf(() => assertApprovalCovers(binding({ expiresAt: "soon" }), request())),
+    ).toBe("APPROVAL_INVALID");
+    expect(
+      codeOf(() => assertApprovalCovers(binding(), request({ now: "soon" }))),
+    ).toBe("APPROVAL_INVALID");
+  });
+
   it("enforces the cost ceiling in the approval currency", () => {
     expect(
       codeOf(() =>
@@ -209,6 +218,29 @@ describe("budget reservations", () => {
       amount: { amount: "10.00", currency: "EUR" },
     });
     expect(again.reused).toBe(true);
+    // A replay reports the balance that remains, not the original ceiling.
+    expect(again.remaining.amount).toBe("90.00");
+
+    // Same money, another scale, is the same reservation.
+    expect(
+      reserveBudget({
+        available,
+        reservations: [first.reservation],
+        operationKey: "op-01",
+        amount: { amount: "10.0", currency: "EUR" },
+      }).reused,
+    ).toBe(true);
+
+    expect(
+      codeOf(() =>
+        reserveBudget({
+          available,
+          reservations: [first.reservation],
+          operationKey: "op-01",
+          amount: { amount: "10.00", currency: "USD" },
+        }),
+      ),
+    ).toBe("CURRENCY_MISMATCH");
 
     expect(
       codeOf(() =>
@@ -243,6 +275,45 @@ describe("budget reservations", () => {
         }),
       ),
     ).toBe("CURRENCY_MISMATCH");
+  });
+
+  it("never increases the balance with a negative or foreign-currency reservation", () => {
+    expect(
+      codeOf(() =>
+        reserveBudget({
+          available,
+          reservations: [],
+          operationKey: "op-neg",
+          amount: { amount: "-5.00", currency: "EUR" },
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        reserveBudget({
+          available,
+          reservations: [
+            {
+              operationKey: "op-usd",
+              amount: { amount: "5.00", currency: "USD" },
+              status: "reserved",
+            },
+          ],
+          operationKey: "op-eur",
+          amount: { amount: "5.00", currency: "EUR" },
+        }),
+      ),
+    ).toBe("CURRENCY_MISMATCH");
+
+    // Sub-cent budgets keep their scale instead of rounding to cents.
+    const precise = reserveBudget({
+      available: { amount: "1.00000000", currency: "EUR" },
+      reservations: [],
+      operationKey: "op-precise",
+      amount: { amount: "0.00000001", currency: "EUR" },
+    });
+    expect(precise.remaining.amount).toBe("0.99999999");
   });
 });
 
