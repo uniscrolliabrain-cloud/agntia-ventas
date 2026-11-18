@@ -24,7 +24,7 @@ async function sign(
     .setProtectedHeader({ alg: options.alg ?? "ES256" })
     .setIssuer(options.issuer ?? ISSUER)
     .setAudience(options.audience ?? AUDIENCE)
-    .setSubject(String(payload["sub"] ?? "user-a"))
+    .setSubject(String(payload["sub"] ?? "user-alpha-01"))
     .setIssuedAt(now - 30)
     .setExpirationTime(now + (options.expiresInSeconds ?? 300))
     .sign(keys.privateKey);
@@ -42,18 +42,29 @@ async function codeOf(promise: Promise<unknown>): Promise<string> {
 
 describe("supabase jwt verification", () => {
   it("accepts a well-formed token and keeps the tenant claim", async () => {
-    const token = await sign({ sub: "user-a", tenant_id: "tenant-alpha-01" });
+    const token = await sign({ sub: "user-alpha-01", tenant_id: "tenant-alpha-01" });
     const claims = await verifier(token);
 
-    expect(claims.sub).toBe("user-a");
+    expect(claims.sub).toBe("user-alpha-01");
     expect(claims.tenantClaim).toBe("tenant-alpha-01");
     expect(claims.issuer).toBe(ISSUER);
     expect(claims.audience).toEqual([AUDIENCE]);
   });
 
+  it("rejects a subject that is not an opaque id", async () => {
+    // The subject becomes the actor id: a control-character or oversize value
+    // must not reach the membership lookup or the audit trail.
+    expect(
+      await codeOf(verifier(await sign({ sub: "user bad!", tenant_id: "tenant-alpha-01" }))),
+    ).toBe("AUTH_INVALID");
+    expect(
+      await codeOf(verifier(await sign({ sub: "u", tenant_id: "tenant-alpha-01" }))),
+    ).toBe("AUTH_INVALID");
+  });
+
   it("falls back to app_metadata.tenant_id", async () => {
     const token = await sign({
-      sub: "user-a",
+      sub: "user-alpha-01",
       app_metadata: { tenant_id: "tenant-beta-02" },
     });
     expect((await verifier(token)).tenantClaim).toBe("tenant-beta-02");
@@ -61,7 +72,7 @@ describe("supabase jwt verification", () => {
 
   it("drops user_metadata so it can never become authority", async () => {
     const token = await sign({
-      sub: "user-a",
+      sub: "user-alpha-01",
       tenant_id: "tenant-alpha-01",
       role: "authenticated",
       user_metadata: { tenant_id: "tenant-beta-02", role: "owner" },
@@ -78,7 +89,7 @@ describe("supabase jwt verification", () => {
       .setProtectedHeader({ alg: "ES256" })
       .setIssuer(ISSUER)
       .setAudience(AUDIENCE)
-      .setSubject("user-a")
+      .setSubject("user-alpha-01")
       .setIssuedAt(now)
       .setExpirationTime(now + 300)
       .sign(otherKeys.privateKey);
@@ -92,7 +103,7 @@ describe("supabase jwt verification", () => {
     );
     const body = Buffer.from(
       JSON.stringify({
-        sub: "user-a",
+        sub: "user-alpha-01",
         iss: ISSUER,
         aud: AUDIENCE,
         iat: Math.floor(Date.now() / 1000),
@@ -106,7 +117,7 @@ describe("supabase jwt verification", () => {
 
   it("rejects a foreign issuer", async () => {
     const token = await sign(
-      { sub: "user-a", tenant_id: "tenant-alpha-01" },
+      { sub: "user-alpha-01", tenant_id: "tenant-alpha-01" },
       { issuer: "https://attacker.example/auth/v1" },
     );
     expect(await codeOf(verifier(token))).toBe("AUTH_INVALID");
@@ -114,7 +125,7 @@ describe("supabase jwt verification", () => {
 
   it("rejects a foreign audience", async () => {
     const token = await sign(
-      { sub: "user-a", tenant_id: "tenant-alpha-01" },
+      { sub: "user-alpha-01", tenant_id: "tenant-alpha-01" },
       { audience: "service_role" },
     );
     expect(await codeOf(verifier(token))).toBe("AUTH_INVALID");
@@ -122,7 +133,7 @@ describe("supabase jwt verification", () => {
 
   it("rejects an expired token", async () => {
     const token = await sign(
-      { sub: "user-a", tenant_id: "tenant-alpha-01" },
+      { sub: "user-alpha-01", tenant_id: "tenant-alpha-01" },
       { expiresInSeconds: -60 },
     );
     expect(await codeOf(verifier(token))).toBe("AUTH_EXPIRED");
@@ -132,7 +143,7 @@ describe("supabase jwt verification", () => {
     expect(await codeOf(verifier("not-a-jwt"))).toBe("AUTH_INVALID");
     expect(await codeOf(verifier("a.b.c"))).toBe("AUTH_INVALID");
 
-    const badTenant = await sign({ sub: "user-a", tenant_id: "x" });
+    const badTenant = await sign({ sub: "user-alpha-01", tenant_id: "x" });
     expect(await codeOf(verifier(badTenant))).toBe("AUTH_INVALID");
   });
 

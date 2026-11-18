@@ -110,6 +110,32 @@ describe("delegation mandates", () => {
 
   it("requires a positive budget", () => {
     check({ budget: { amount: "0.00", currency: "EUR" } }, "MANDATE_INVALID");
+    check({ budget: { amount: "-5.00", currency: "EUR" } }, "MANDATE_INVALID");
+  });
+
+  it("refuses an unreadable budget instead of accepting it as positive", () => {
+    check({ budget: { amount: "abc", currency: "EUR" } }, "MANDATE_INVALID");
+    check(
+      { budget: { amount: "10,00", currency: "EUR" } as DelegationMandate["budget"] },
+      "MANDATE_INVALID",
+    );
+  });
+
+  it("treats an unreadable date as expired or invalid, never as live", () => {
+    check({ expiresAt: "mañana" }, "MANDATE_EXPIRED");
+    check({ issuedAt: "ayer" }, "MANDATE_INVALID");
+
+    try {
+      assertMandateAllowsWork(mandate(), {
+        now: new Date("not-a-date"),
+        twin,
+        expectedRevocationVersion: 3,
+        requiredCapability: "sales.quote.calculate",
+      });
+      throw new Error("expected failure");
+    } catch (error) {
+      expect((error as ServiceError).code).toBe("MANDATE_EXPIRED");
+    }
   });
 
   it("keeps the target tenant as data scope without rewriting the origin", () => {

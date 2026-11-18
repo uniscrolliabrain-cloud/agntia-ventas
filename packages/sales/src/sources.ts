@@ -218,6 +218,20 @@ export async function fetchSourceExcerpt(input: {
       });
     }
 
+    // A declared length is checked before buffering: reading the whole body and
+    // rejecting it afterwards still allocates whatever the provider sent.
+    const declaredLength = response.headers.get("content-length");
+    if (declaredLength !== null) {
+      const declared = Number(declaredLength);
+      if (Number.isFinite(declared) && declared > maxBytes) {
+        throw new ServiceError(
+          "PROVIDER_INVALID_RESPONSE",
+          "source declares more than the size limit",
+          { details: { declared, maxBytes } },
+        );
+      }
+    }
+
     let raw: string;
     try {
       raw = await response.text();

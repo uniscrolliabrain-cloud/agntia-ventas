@@ -30,13 +30,21 @@ async function asyncCodeOf(promise: Promise<unknown>): Promise<string> {
 
 function reply(
   body: string,
-  init: { status?: number; contentType?: string | null } = {},
+  init: { status?: number; contentType?: string | null; contentLength?: string | null } = {},
 ): SourceHttpResponse {
   const contentType = init.contentType === undefined ? "text/html; charset=utf-8" : init.contentType;
+  const contentLength = init.contentLength === undefined ? null : init.contentLength;
   return {
     ok: (init.status ?? 200) >= 200 && (init.status ?? 200) < 300,
     status: init.status ?? 200,
-    headers: { get: (name: string) => (name.toLowerCase() === "content-type" ? contentType : null) },
+    headers: {
+      get: (name: string) => {
+        const header = name.toLowerCase();
+        if (header === "content-type") return contentType;
+        if (header === "content-length") return contentLength;
+        return null;
+      },
+    },
     text: async () => body,
   };
 }
@@ -131,6 +139,17 @@ describe("source retrieval", () => {
         fetchSourceExcerpt({
           ...base,
           fetchImpl: async () => reply("{}", { contentType: "application/pdf" }),
+        }),
+      ),
+    ).toBe("PROVIDER_INVALID_RESPONSE");
+
+    // A declared oversize body is rejected before it is buffered.
+    expect(
+      await asyncCodeOf(
+        fetchSourceExcerpt({
+          ...base,
+          maxBytes: 8,
+          fetchImpl: async () => reply("<p>x</p>", { contentLength: "1048576" }),
         }),
       ),
     ).toBe("PROVIDER_INVALID_RESPONSE");

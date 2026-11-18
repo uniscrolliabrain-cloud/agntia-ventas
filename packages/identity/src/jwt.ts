@@ -86,10 +86,14 @@ export function createSupabaseJwtVerifier(config: JwtVerifierConfig): JwtVerifie
       throw new ServiceError("AUTH_INVALID", "token verification failed");
     }
 
-    const sub = payload["sub"];
-    if (typeof sub !== "string" || sub.length < 1) {
-      throw new ServiceError("AUTH_INVALID", "token without subject");
+    // The subject becomes the actor id downstream: it must already satisfy the
+    // opaque-id contract instead of reaching the membership query and the
+    // audit trail with control characters or an unbounded length.
+    const subject = OpaqueIdSchema.safeParse(payload["sub"]);
+    if (!subject.success) {
+      throw new ServiceError("AUTH_INVALID", "token subject is not an opaque id");
     }
+    const sub = subject.data;
 
     const { user_metadata: _droppedUserMetadata, ...rest } = payload;
     void _droppedUserMetadata;

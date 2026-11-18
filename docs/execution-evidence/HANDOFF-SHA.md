@@ -14,10 +14,10 @@ Historial de la rama: `9d04e72` (C01–C05) → `e57df78` (evidencia) → `73c99
 ```bash
 pnpm install            # exit 0, lockfile pnpm-lock.yaml
 pnpm run typecheck      # exit 0 (contracts, domain, identity, sales, persistence, api)
-pnpm run test           # exit 0, 285 tests / 30 archivos
+pnpm run test           # exit 0, 288 tests / 30 archivos
 ```
 
-Conteo por paquete: contracts 12, domain 14, identity 28, sales 149,
+Conteo por paquete: contracts 12, domain 14, identity 31, sales 149,
 persistence 38, api 44. Reejecutado el 2026-11-18 (workspace restaurado:
 `pnpm install --frozen-lockfile` exit 0 antes de las dos comprobaciones).
 
@@ -56,15 +56,17 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   estados durable (intento condicional, ACK con referencia, timeout y
   reconciliación). `0005_domain_enums.sql` alinea los checks de estado con el
   dominio. El transporte al padre sigue siendo STUB.
-- Auditoría transversal del 2026-11-18: 44 defectos corregidos con prueba en
-  dos pasadas (aislamiento por tenant, propósito de permiso, supresión por
+- Auditoría transversal del 2026-11-18: 48 defectos corregidos con prueba en
+  tres pasadas (aislamiento por tenant, propósito de permiso, supresión por
   dirección, reloj del servidor, idempotencia de cotizaciones/aprobaciones,
   redirects y timeouts de proveedor, `no-store`, secretos, deriva
   dominio/esquema; y en la segunda: redondeo declarado en coste de modelo,
   dinero no negativo, atributos sensibles en cualquier grafía, ciclo en el
   hash, medianoche en el offset, cursor versionado de importación y paridad de
-  la guarda SSRF de discovery). Detalle y pendientes en
-  [AUDIT-2026-11-18.md](AUDIT-2026-11-18.md).
+  la guarda SSRF de discovery; y en la tercera: caducidad y presupuesto del
+  mandato con fecha/importe ilegible, `sub` del JWT validado como id opaco y
+  `content-length` del origen comprobado antes de leer el cuerpo). Detalle y
+  pendientes en [AUDIT-2026-11-18.md](AUDIT-2026-11-18.md).
 - Superficie HTTP: cinco rutas preview y cinco rutas con efecto local idempotente
   (cotización y aprobación persistidas, revocación, lectura y portal firmado).
   Ninguna envía, firma, cobra ni llama a un proveedor.

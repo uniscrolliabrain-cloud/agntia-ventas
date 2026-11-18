@@ -1,4 +1,5 @@
 import {
+  MoneySchema,
   ServiceError,
   type Capability,
   type DelegationMandate,
@@ -13,14 +14,30 @@ export interface MandateValidationContext {
   readonly requiredCapability: Capability;
 }
 
+/**
+ * An unreadable date is never a live mandate: `NaN <= now` and `NaN > now`
+ * are both false, so an invalid `expiresAt` used to pass every check.
+ */
+function timestampOf(value: string, code: "MANDATE_EXPIRED" | "MANDATE_INVALID", field: string): number {
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) {
+    throw new ServiceError(code, `${field} is unreadable`, { details: { field } });
+  }
+  return ms;
+}
+
 function assertNotExpired(mandate: DelegationMandate, now: Date): void {
-  if (new Date(mandate.expiresAt).getTime() <= now.getTime()) {
+  const nowMs = now.getTime();
+  const expiresMs = timestampOf(mandate.expiresAt, "MANDATE_EXPIRED", "expiresAt");
+  if (!Number.isFinite(nowMs) || expiresMs <= nowMs) {
     throw new ServiceError("MANDATE_EXPIRED", "delegation mandate expired");
   }
 }
 
 function assertAlreadyValid(mandate: DelegationMandate, now: Date): void {
-  if (new Date(mandate.issuedAt).getTime() > now.getTime()) {
+  const nowMs = now.getTime();
+  const issuedMs = timestampOf(mandate.issuedAt, "MANDATE_INVALID", "issuedAt");
+  if (!Number.isFinite(nowMs) || issuedMs > nowMs) {
     throw new ServiceError("MANDATE_INVALID", "delegation mandate not yet valid");
   }
 }
@@ -88,8 +105,21 @@ function assertExplicitDelegation(mandate: DelegationMandate): void {
   }
 }
 
+/**
+ * `Number("abc")` is `NaN`, and `NaN <= 0` is false: an unreadable budget used
+ * to be accepted as positive. The amount is contract money, so it is validated
+ * as such and only the sign is interpreted.
+ */
 function assertBudget(mandate: DelegationMandate): void {
-  if (Number(mandate.budget.amount) <= 0) {
+  const budget = MoneySchema.safeParse(mandate.budget);
+  if (!budget.success) {
+    throw new ServiceError("MANDATE_INVALID", "mandate budget is not an exact decimal", {
+      details: { field: "budget.amount" },
+    });
+  }
+  const { amount } = budget.data;
+  const isZero = /^0(\.0+)?$/.test(amount);
+  if (amount.startsWith("-") || isZero) {
     throw new ServiceError("MANDATE_INVALID", "mandate budget must be positive");
   }
 }
