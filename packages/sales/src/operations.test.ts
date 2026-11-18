@@ -46,6 +46,20 @@ describe("discovery and secrets", () => {
     ).toBe("VALIDATION_FAILED");
   });
 
+  it("rejects a non-default port, an IPv6 literal and a private suffix", () => {
+    expect(
+      codeOf(() =>
+        assertDiscoveryEndpoint("https://api.provider.test:8443/v1", ["api.provider.test"]),
+      ),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() => assertDiscoveryEndpoint("https://[::1]/v1", ["[::1]"])),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() => assertDiscoveryEndpoint("https://db.local/v1", ["db.local"])),
+    ).toBe("VALIDATION_FAILED");
+  });
+
   it("detects secret material", () => {
     expect(codeOf(() => assertNoSecretMaterial("sk-live-abcdefghijkl"))).toBe("VALIDATION_FAILED");
     expect(codeOf(() => assertNoSecretMaterial("postgres://u:p@db/x"))).toBe("VALIDATION_FAILED");
@@ -57,8 +71,8 @@ describe("imports", () => {
   const base = {
     seenExternalIds: ["ext-01"],
     reviewedVersions: { "ext-02": "sha256:old" },
-    previousCursor: "cursor-1",
-    nextCursor: "cursor-2",
+    previousCursor: "v1:1:op-a",
+    nextCursor: "v1:2:op-b",
   };
 
   it("separates fresh, duplicate and conflicting records", () => {
@@ -75,7 +89,7 @@ describe("imports", () => {
     expect(preview.conflicts).toEqual([
       { externalId: "ext-02", reason: "reviewed_content_changed" },
     ]);
-    expect(preview.nextCursor).toBe("cursor-2");
+    expect(preview.nextCursor).toBe("v1:2:op-b");
   });
 
   it("rejects a backwards cursor and an unhashed record", () => {
@@ -83,7 +97,7 @@ describe("imports", () => {
       codeOf(() =>
         previewImport({
           ...base,
-          nextCursor: "cursor-1",
+          nextCursor: "v1:1:op-a",
           records: [{ externalId: "ext-09", contentHash: "sha256:x" }],
         }),
       ),
@@ -96,7 +110,57 @@ describe("imports", () => {
           seenExternalIds: [],
           reviewedVersions: {},
           previousCursor: null,
+          nextCursor: "v1:1:op-a",
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
+
+  it("orders cursors by their declared sequence instead of by text", () => {
+    // "9" > "10" under a string comparison: the sequence is what moves forward.
+    const preview = previewImport({
+      records: [],
+      seenExternalIds: [],
+      reviewedVersions: {},
+      previousCursor: "v1:9:zzz",
+      nextCursor: "v1:10:aaa",
+    });
+    expect(preview.nextCursor).toBe("v1:10:aaa");
+
+    expect(
+      codeOf(() =>
+        previewImport({
+          records: [],
+          seenExternalIds: [],
+          reviewedVersions: {},
+          previousCursor: "v1:10:aaa",
+          nextCursor: "v1:9:zzz",
+        }),
+      ),
+    ).toBe("CURSOR_REGRESSION");
+  });
+
+  it("refuses a cursor it cannot order instead of comparing strings", () => {
+    expect(
+      codeOf(() =>
+        previewImport({
+          records: [],
+          seenExternalIds: [],
+          reviewedVersions: {},
+          previousCursor: null,
           nextCursor: "cursor-1",
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        previewImport({
+          records: [],
+          seenExternalIds: [],
+          reviewedVersions: {},
+          previousCursor: "v2:5:op-a",
+          nextCursor: "v2:6:op-b",
         }),
       ),
     ).toBe("VALIDATION_FAILED");

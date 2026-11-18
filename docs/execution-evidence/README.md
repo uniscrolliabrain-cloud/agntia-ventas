@@ -28,14 +28,14 @@ exit code, conteo de tests, gates, bloqueos y siguiente dependencia.
 | VTA-C06 | [C06](C06-REPORT.md) | PASS (Postgres WASM; Supabase real NOT_VERIFIED) |
 | VTA-C07 — C42 | [C07-C42](C07-C42-REPORT.md) | Matriz por campaña: 25 IMPLEMENTED, 10 PARTIAL, 1 DOCUMENTED |
 | Stubs abiertos | [REMAINING-STUBS](REMAINING-STUBS.md) | 16 stubs declarados en `CAPABILITY_STUBS` |
-| Auditoría transversal | [AUDIT-2026-11-18](AUDIT-2026-11-18.md) | 31 defectos corregidos con prueba; pendientes declarados |
+| Auditoría transversal | [AUDIT-2026-11-18](AUDIT-2026-11-18.md) | 44 defectos corregidos con prueba (31 + 13 en segunda pasada); pendientes declarados |
 
 ## Comandos del proyecto
 
 ```bash
 pnpm install
 pnpm run typecheck     # tsc --noEmit en contracts, domain, identity, sales, persistence y api
-pnpm run test          # vitest en los seis paquetes (272 pruebas / 30 archivos)
+pnpm run test          # vitest en los seis paquetes (285 pruebas / 30 archivos)
 pnpm run dev           # API Hono en :8787 (falla cerrado sin SUPABASE_*)
 ```
 

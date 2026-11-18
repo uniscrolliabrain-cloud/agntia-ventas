@@ -31,9 +31,14 @@ export function assertNoSecretMaterial(value: string): void {
   }
 }
 
+/** Same private-target rule the source fetcher uses: no loopback, no IP
+ * literal (including IPv6), no `.local`/`.internal`/`.localhost` suffix. */
+const PRIVATE_HOSTNAME = /^(localhost|\[[^\]]+\]|\d{1,3}(\.\d{1,3}){3}|.*\.(local|internal|localhost))$/i;
+
 /**
- * Discovery cannot take a free URL from the model: https, an allowlisted host,
- * no embedded credentials and no IP literal or loopback target.
+ * Discovery cannot take a free URL from the model: https, the default port, an
+ * allowlisted host, no embedded credentials and no IP literal or private
+ * target.
  */
 export function assertDiscoveryEndpoint(url: string, allowlist: readonly string[]): URL {
   let parsed: URL;
@@ -48,17 +53,18 @@ export function assertDiscoveryEndpoint(url: string, allowlist: readonly string[
   if (parsed.username || parsed.password) {
     throw new ServiceError("VALIDATION_FAILED", "endpoint must not embed credentials");
   }
+  if (parsed.port && parsed.port !== "443") {
+    throw new ServiceError("VALIDATION_FAILED", "endpoint must use the default https port");
+  }
   if (!allowlist.includes(parsed.hostname)) {
     throw new ServiceError("VALIDATION_FAILED", "endpoint host is not allowlisted", {
       details: { host: parsed.hostname },
     });
   }
-  if (
-    parsed.hostname === "localhost" ||
-    /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) ||
-    parsed.hostname.endsWith(".internal")
-  ) {
-    throw new ServiceError("VALIDATION_FAILED", "endpoint targets a private host");
+  if (PRIVATE_HOSTNAME.test(parsed.hostname)) {
+    throw new ServiceError("VALIDATION_FAILED", "endpoint targets a private host", {
+      details: { host: parsed.hostname },
+    });
   }
   assertNoSecretMaterial(url);
   return parsed;
@@ -81,6 +87,27 @@ export interface ImportPreview {
 }
 
 /**
+ * Cursors are opaque to the caller but self-describing to the core:
+ * `v1:<sequence>:<opaque token>`. The sequence is what orders two pages, so a
+ * base64/UUID token cannot be compared lexicographically by accident.
+ */
+const CURSOR_PATTERN = /^v(\d{1,3}):(\d{1,15}):([A-Za-z0-9._~-]{1,200})$/;
+
+function parseImportCursor(cursor: string, field: string): number {
+  const match = CURSOR_PATTERN.exec(cursor);
+  const version = Number(match?.[1]);
+  const sequence = Number(match?.[2]);
+  if (!match || version !== 1 || !Number.isSafeInteger(sequence)) {
+    throw new ServiceError(
+      "VALIDATION_FAILED",
+      "cursor is not a supported versioned import cursor",
+      { details: { field } },
+    );
+  }
+  return sequence;
+}
+
+/**
  * Repeating an import never duplicates. A record whose content changed after a
  * local review is a conflict, not a silent overwrite, and the cursor only moves
  * forward after the local commit.
@@ -92,8 +119,12 @@ export function previewImport(input: {
   previousCursor: string | null;
   nextCursor: string;
 }): ImportPreview {
-  if (input.previousCursor && input.nextCursor <= input.previousCursor) {
-    throw new ServiceError("CURSOR_REGRESSION", "cursor cannot move backwards");
+  const nextSequence = parseImportCursor(input.nextCursor, "nextCursor");
+  if (input.previousCursor !== null) {
+    const previousSequence = parseImportCursor(input.previousCursor, "previousCursor");
+    if (nextSequence <= previousSequence) {
+      throw new ServiceError("CURSOR_REGRESSION", "cursor cannot move backwards");
+    }
   }
   const seen = new Set(input.seenExternalIds);
   const fresh: ImportRecord[] = [];

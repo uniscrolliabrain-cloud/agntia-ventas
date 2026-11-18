@@ -27,6 +27,20 @@ describe("proposal revisions", () => {
     );
   });
 
+  it("refuses a cyclic payload instead of overflowing the stack", () => {
+    const cyclic: Record<string, unknown> = { id: "proposal-02" };
+    cyclic["self"] = cyclic;
+    expect(codeOf(() => stableStringify(cyclic))).toBe("VALIDATION_FAILED");
+  });
+
+  it("accepts the same object referenced twice and refuses values JSON cannot hold", () => {
+    const shared = { amount: "10.00" };
+    expect(stableStringify({ left: shared, right: shared })).toBe(
+      '{"left":{"amount":"10.00"},"right":{"amount":"10.00"}}',
+    );
+    expect(codeOf(() => stableStringify({ total: 10n }))).toBe("VALIDATION_FAILED");
+  });
+
   it("refuses a fact without evidence", () => {
     expect(
       codeOf(() =>
@@ -107,6 +121,19 @@ describe("meetings", () => {
         }),
       ),
     ).toBe("VALIDATION_FAILED");
+  });
+
+  it("keeps a midnight slot proposed", () => {
+    // Midnight used to render as hour "24" with hour12:false, which shifted
+    // the offset a full day and turned a normal slot into "uncertain".
+    const meeting = proposeMeeting({
+      id: "meeting-08",
+      operationKey: "op-07",
+      startUtc: "2026-07-01T00:00:00Z",
+      timeZone: "UTC",
+      attendees: ["user-alpha-01"],
+    });
+    expect(meeting.status).toBe("proposed");
   });
 
   it("refuses an unreadable start or an unknown timezone", () => {

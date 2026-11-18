@@ -10,16 +10,31 @@ import type {
   SuppressionEntry,
 } from "./models.ts";
 
-const SENSITIVE_KEYS = new Set([
+/**
+ * Sensitive attribute roots. Keys are matched per token after splitting
+ * separators and camelCase, so `health`, `health_status`, `Health` and
+ * `sexualOrientation` are the same sensitive attribute instead of only the
+ * snake_case spelling.
+ */
+const SENSITIVE_ROOTS = [
   "health",
-  "disability",
-  "ethnicity",
-  "religion",
-  "sexual_orientation",
-  "political_opinion",
+  "disabilit",
+  "ethnic",
+  "religio",
+  "sexual",
+  "politic",
   "biometric",
   "emotion",
-]);
+] as const;
+
+function isSensitiveKey(key: string): boolean {
+  const tokens = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .map((token) => token.toLowerCase())
+    .filter((token) => token.length > 0);
+  return tokens.some((token) => SENSITIVE_ROOTS.some((root) => token.startsWith(root)));
+}
 
 /** Homonyms stay separate: identity is per account, never merged by name. */
 export function previewContact(
@@ -199,7 +214,7 @@ export function proposeQualification(input: {
   const rejectedSensitive: string[] = [];
   const accepted: QualificationFact[] = [];
   for (const fact of input.facts) {
-    if (SENSITIVE_KEYS.has(fact.key.toLowerCase())) {
+    if (isSensitiveKey(fact.key)) {
       rejectedSensitive.push(fact.key);
       continue;
     }

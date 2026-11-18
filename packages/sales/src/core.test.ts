@@ -341,6 +341,26 @@ describe("qualification", () => {
     expect(proposal.facts.map((fact) => fact.key)).toEqual(["employees"]);
   });
 
+  it("rejects sensitive attributes whatever their spelling", () => {
+    const proposal = proposeQualification({
+      facts: [
+        { key: "Health", value: "unknown", sourceRef: "evidence-04" },
+        { key: "health_status", value: "unknown", sourceRef: "evidence-05" },
+        { key: "sexualOrientation", value: "unknown", sourceRef: "evidence-06" },
+        { key: "political_opinion", value: "unknown", sourceRef: "evidence-07" },
+        { key: "employees", value: "12", sourceRef: "evidence-08" },
+      ],
+      requiredKeys: ["employees"],
+    });
+    expect(proposal.rejectedSensitive).toEqual([
+      "Health",
+      "health_status",
+      "sexualOrientation",
+      "political_opinion",
+    ]);
+    expect(proposal.facts.map((fact) => fact.key)).toEqual(["employees"]);
+  });
+
   it("refuses a fact without a source", () => {
     expect(
       codeOf(() =>

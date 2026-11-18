@@ -167,6 +167,27 @@ describe("approvals", () => {
       ),
     ).toBe("CURRENCY_MISMATCH");
   });
+
+  it("refuses an unreadable or negative cost instead of crashing or fitting any ceiling", () => {
+    expect(
+      codeOf(() =>
+        assertApprovalCovers(binding(), request({ cost: { amount: "10,00", currency: "EUR" } })),
+      ),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() =>
+        assertApprovalCovers(binding(), request({ cost: { amount: "-5.00", currency: "EUR" } })),
+      ),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() =>
+        assertApprovalCovers(
+          binding({ costCeiling: { amount: "abc", currency: "EUR" } }),
+          request(),
+        ),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
 });
 
 describe("budget reservations", () => {

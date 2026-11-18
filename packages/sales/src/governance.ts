@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { ServiceError, type Money } from "@agntia-ventas/contracts";
+import { MoneySchema, ServiceError, type Money } from "@agntia-ventas/contracts";
 import type { HandoffRecord } from "./models.ts";
 
 export interface ApprovalBinding {
@@ -93,8 +93,24 @@ export function assertApprovalCovers(
   if (approval.costCeiling.currency !== request.cost.currency) {
     throw new ServiceError("CURRENCY_MISMATCH", "approval cost ceiling currency differs");
   }
+  // Both sides are contract money: an unreadable amount throws inside
+  // decimal.js and a negative cost would always fit under any ceiling.
+  const ceiling = MoneySchema.safeParse(approval.costCeiling);
+  const cost = MoneySchema.safeParse(request.cost);
+  if (!ceiling.success || !cost.success) {
+    throw new ServiceError("VALIDATION_FAILED", "approval money is not an exact decimal", {
+      details: {
+        fields: [ceiling.success ? null : "costCeiling", cost.success ? null : "cost"].filter(
+          (field): field is string => field !== null,
+        ),
+      },
+    });
+  }
+  if (new Decimal(cost.data.amount).isNegative()) {
+    throw new ServiceError("VALIDATION_FAILED", "approval cost cannot be negative");
+  }
   if (
-    new Decimal(request.cost.amount).greaterThan(approval.costCeiling.amount)
+    new Decimal(cost.data.amount).greaterThan(ceiling.data.amount)
   ) {
     throw new ServiceError("BUDGET_EXCEEDED", "cost exceeds the approved ceiling", {
       details: { cost: request.cost.amount, ceiling: approval.costCeiling.amount },

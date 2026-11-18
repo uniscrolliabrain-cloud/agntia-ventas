@@ -3,6 +3,7 @@ import { ServiceError, type Money, type RoundingPolicy } from "@agntia-ventas/co
 import {
   addMoney,
   applyDiscountBasisPoints,
+  decimalRounding,
   multiplyMoney,
   subtractMoney,
   sumMoney,
@@ -22,16 +23,9 @@ Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 
 function taxOn(net: Money, basisPoints: number, policy: RoundingPolicy): Money {
   const factor = new Decimal(basisPoints).dividedBy(10_000);
-  const amount = new Decimal(net.amount).times(factor).toDecimalPlaces(
-    policy.exponent,
-    policy.rounding === "HALF_UP"
-      ? Decimal.ROUND_HALF_UP
-      : policy.rounding === "HALF_EVEN"
-        ? Decimal.ROUND_HALF_EVEN
-        : policy.rounding === "DOWN"
-          ? Decimal.ROUND_DOWN
-          : Decimal.ROUND_UP,
-  );
+  const amount = new Decimal(net.amount)
+    .times(factor)
+    .toDecimalPlaces(policy.exponent, decimalRounding(policy.rounding));
   return { amount: amount.toFixed(policy.exponent), currency: net.currency };
 }
 

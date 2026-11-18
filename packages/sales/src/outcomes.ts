@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { ServiceError, type Money } from "@agntia-ventas/contracts";
+import { MoneySchema, ServiceError, type Money } from "@agntia-ventas/contracts";
 import { addMoney, sumMoney } from "@agntia-ventas/domain";
 import type {
   ActivityRecord,
@@ -21,6 +21,15 @@ export function recordActivity(input: {
   occurredAt: string;
   receiptRef?: string;
 }): ActivityRecord {
+  if (!input.id || !input.tenantId) {
+    throw new ServiceError("VALIDATION_FAILED", "activity needs an id and a tenant");
+  }
+  // An unreadable timestamp cannot be ordered against a receipt or a window.
+  if (!Number.isFinite(Date.parse(input.occurredAt))) {
+    throw new ServiceError("VALIDATION_FAILED", "activity time is unreadable", {
+      details: { occurredAt: input.occurredAt },
+    });
+  }
   return {
     id: input.id,
     tenantId: input.tenantId,
@@ -71,6 +80,19 @@ export function buildForecast(input: {
     if (scenario.amount.currency !== currency) {
       throw new ServiceError("CURRENCY_MISMATCH", "forecast mixes currencies");
     }
+    // A negative scenario would subtract pipeline from the weighted total, and
+    // an unreadable amount throws inside decimal.js instead of the contract.
+    const amount = MoneySchema.safeParse(scenario.amount);
+    if (!amount.success) {
+      throw new ServiceError("VALIDATION_FAILED", "forecast amount is not an exact decimal", {
+        details: { stage: scenario.stage },
+      });
+    }
+    if (new Decimal(amount.data.amount).isNegative()) {
+      throw new ServiceError("VALIDATION_FAILED", "forecast amount cannot be negative", {
+        details: { stage: scenario.stage },
+      });
+    }
     if (
       !Number.isInteger(scenario.probabilityBasisPoints) ||
       scenario.probabilityBasisPoints < 0 ||
@@ -81,7 +103,7 @@ export function buildForecast(input: {
       });
     }
     weightedTotal = weightedTotal.plus(
-      new Decimal(scenario.amount.amount)
+      new Decimal(amount.data.amount)
         .times(scenario.probabilityBasisPoints)
         .dividedBy(10_000),
     );
@@ -132,6 +154,15 @@ export function computeConversion(input: {
 }): ConversionMetric {
   if (input.denominator < 0 || !Number.isInteger(input.denominator)) {
     throw new ServiceError("VALIDATION_FAILED", "denominator must be a non-negative integer");
+  }
+  // A metric with an unreadable or inverted window is not measurable data.
+  const windowStart = Date.parse(input.windowStart);
+  const windowEnd = Date.parse(input.windowEnd);
+  if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd)) {
+    throw new ServiceError("VALIDATION_FAILED", "conversion window is unreadable");
+  }
+  if (windowEnd <= windowStart) {
+    throw new ServiceError("VALIDATION_FAILED", "conversion window must end after it starts");
   }
   const unique = new Set(input.wonIds);
   const won = unique.size;

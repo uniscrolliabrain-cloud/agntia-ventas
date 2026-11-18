@@ -273,8 +273,8 @@ describe("imports/preview", () => {
       records: [{ externalId: "ext-01", contentHash: "sha256:a" }],
       seenExternalIds: [],
       reviewedVersions: {},
-      previousCursor: "cursor-2",
-      nextCursor: "cursor-1",
+      previousCursor: "v1:2:op-b",
+      nextCursor: "v1:1:op-a",
     });
     expect(status).toBe(409);
     expect(json.error.code).toBe("CURSOR_REGRESSION");
@@ -289,7 +289,7 @@ describe("imports/preview", () => {
       seenExternalIds: ["ext-01"],
       reviewedVersions: {},
       previousCursor: null,
-      nextCursor: "cursor-1",
+      nextCursor: "v1:1:op-a",
     });
     expect(status).toBe(200);
     expect(json.data.preview.fresh.map((record: { externalId: string }) => record.externalId)).toEqual([

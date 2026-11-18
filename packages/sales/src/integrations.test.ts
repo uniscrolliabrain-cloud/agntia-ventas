@@ -384,4 +384,50 @@ describe("model costs", () => {
       codeOf(() => estimateModelCost({ price, inputTokens: -1, outputTokens: 1, policy })),
     ).toBe("VALIDATION_FAILED");
   });
+
+  it("rounds with the declared mode instead of always half up", () => {
+    const tiny: ModelPrice = {
+      ...price,
+      inputPerMillion: { amount: "0.0000009", currency: "EUR" },
+    };
+    expect(
+      estimateModelCost({
+        price: tiny,
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+        policy: { rounding: "HALF_UP", exponent: 6, policyVersion: "q1" },
+      }).amount,
+    ).toBe("0.000001");
+    expect(
+      estimateModelCost({
+        price: tiny,
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+        policy: { rounding: "DOWN", exponent: 6, policyVersion: "q1" },
+      }).amount,
+    ).toBe("0.000000");
+  });
+
+  it("refuses a negative price and a negative spend instead of crediting", () => {
+    expect(
+      codeOf(() =>
+        estimateModelCost({
+          price: { ...price, inputPerMillion: { amount: "-3.00", currency: "EUR" } },
+          inputTokens: 1,
+          outputTokens: 1,
+          policy,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        consumeModelBudget({
+          ceiling: { amount: "5.00", currency: "EUR" },
+          spent: { amount: "4.00", currency: "EUR" },
+          cost: { amount: "-1.00", currency: "EUR" },
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
 });

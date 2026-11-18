@@ -40,6 +40,20 @@ describe("activity", () => {
     expect(activity.status).toBe("confirmed");
     expect(activity.receiptRef).toBe("receipt-01");
   });
+
+  it("refuses an unreadable activity time instead of confirming it", () => {
+    expect(
+      codeOf(() =>
+        recordActivity({
+          id: "activity-03",
+          tenantId: "tenant-alpha-01",
+          kind: "call",
+          occurredAt: "ayer",
+          receiptRef: "receipt-02",
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
 });
 
 describe("forecast", () => {
@@ -120,6 +134,36 @@ describe("forecast", () => {
       ),
     ).toBe("VALIDATION_FAILED");
   });
+
+  it("refuses a negative or unreadable scenario amount", () => {
+    expect(
+      codeOf(() =>
+        buildForecast({
+          id: "forecast-06",
+          probabilityVersion: "p",
+          scenarios: [
+            { stage: "qualified", amount: { amount: "-10.00", currency: "EUR" }, probabilityBasisPoints: 5000 },
+          ],
+          accountsWithAmount: 1,
+          accountsTotal: 1,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        buildForecast({
+          id: "forecast-07",
+          probabilityVersion: "p",
+          scenarios: [
+            { stage: "qualified", amount: { amount: "10,00", currency: "EUR" }, probabilityBasisPoints: 5000 },
+          ],
+          accountsWithAmount: 1,
+          accountsTotal: 1,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
 });
 
 describe("conversion metrics", () => {
@@ -156,6 +200,32 @@ describe("conversion metrics", () => {
           windowEnd: "2026-12-31T23:59:59Z",
           denominator: 1,
           wonIds: ["a", "b"],
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
+
+  it("refuses an inverted or unreadable window", () => {
+    expect(
+      codeOf(() =>
+        computeConversion({
+          cohort: "inverted",
+          windowStart: "2026-12-31T23:59:59Z",
+          windowEnd: "2026-10-01T00:00:00Z",
+          denominator: 10,
+          wonIds: [],
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
+    expect(
+      codeOf(() =>
+        computeConversion({
+          cohort: "unreadable",
+          windowStart: "october",
+          windowEnd: "2026-12-31T23:59:59Z",
+          denominator: 10,
+          wonIds: [],
         }),
       ),
     ).toBe("VALIDATION_FAILED");

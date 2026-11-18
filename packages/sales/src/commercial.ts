@@ -8,20 +8,40 @@ import type {
   SequenceState,
 } from "./models.ts";
 
-/** Deterministic JSON: nested keys are sorted, so a hash never depends on order. */
-export function stableStringify(value: unknown): string {
+/**
+ * Deterministic JSON: nested keys are sorted, so a hash never depends on order.
+ * A cyclic structure is refused instead of recursing until the stack overflows,
+ * and a value JSON cannot represent is refused instead of being hashed as
+ * `null` (two different payloads would share one hash).
+ */
+export function stableStringify(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null || typeof value !== "object") {
+    if (typeof value === "bigint" || typeof value === "function" || typeof value === "symbol") {
+      throw new ServiceError("VALIDATION_FAILED", "value cannot be hashed as JSON", {
+        details: { type: typeof value },
+      });
+    }
     return JSON.stringify(value) ?? "null";
   }
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  if (seen.has(value)) {
+    throw new ServiceError("VALIDATION_FAILED", "cannot hash a cyclic structure");
   }
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
-  );
-  return `{${entries
-    .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
-    .join(",")}}`;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => stableStringify(item, seen)).join(",")}]`;
+    }
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    );
+    return `{${entries
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item, seen)}`)
+      .join(",")}}`;
+  } finally {
+    // Only the current path counts as a cycle: the same object referenced twice
+    // in different branches is valid JSON and must not be rejected.
+    seen.delete(value);
+  }
 }
 
 export function contentHash(value: unknown): string {
@@ -67,9 +87,11 @@ export function proposeRevision(input: {
 }
 
 function offsetMinutes(date: Date, timeZone: string): number {
+  // `hour12: false` renders midnight as "24" in some ICU builds, which shifts
+  // the offset by a whole day and hides a real DST change. `h23` is stable.
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
-    hour12: false,
+    hourCycle: "h23",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

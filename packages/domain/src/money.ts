@@ -65,6 +65,15 @@ const ROUNDING_MODES: Record<RoundingPolicy["rounding"], Decimal.Rounding> = {
   UP: Decimal.ROUND_UP,
 };
 
+/**
+ * Single mapping from the versioned policy to decimal.js. Modules that round
+ * money must use this map: a private chain of ternaries silently defaulted to
+ * HALF_UP whenever a mode was added or misspelled.
+ */
+export function decimalRounding(mode: RoundingPolicy["rounding"]): Decimal.Rounding {
+  return ROUNDING_MODES[mode];
+}
+
 export function addMoney(left: Money, right: Money): Money {
   assertCurrency(left, right);
   const digits = Math.max(fractionalDigits(left.amount), fractionalDigits(right.amount));

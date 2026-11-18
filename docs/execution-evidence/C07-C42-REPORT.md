@@ -30,10 +30,10 @@ Conteo real tras la ejecución:
 | contracts | 1 | 12 |
 | domain | 1 | 14 |
 | identity | 3 | 28 |
-| sales | 14 | 136 |
+| sales | 14 | 149 |
 | persistence | 6 | 38 |
 | api | 5 | 44 |
-| **total** | **30** | **272** |
+| **total** | **30** | **285** |
 
 Entorno: Node v26.13.0, pnpm 10.34.9, PGlite (PostgreSQL WASM) como motor de
 pruebas. Docker no es utilizable en este host (`permission denied` en
@@ -87,14 +87,18 @@ registrado; **PARTIAL** = parte local verificada, parte externa no;
 
 ## Auditoría transversal (2026-11-18)
 
-Se revisó el árbol completo y se corrigieron 31 defectos con prueba, entre
-ellos: aceptación/supresión fuera de tenant, propósito de permiso no verificado,
-reloj controlado por el cliente en las cotizaciones, replay de cotizaciones y
-aprobaciones que devolvía la fila vieja con otro payload, redirects de
-proveedor fuera del allowlist, timeouts que no cubrían el cuerpo de la
-respuesta, `cache-control` ausente en respuestas autenticadas, formatos de
-secreto no detectados y deriva entre los estados del dominio y los `check` de
-Postgres (`0005_domain_enums.sql`).
+Se revisó el árbol completo en dos pasadas y se corrigieron 44 defectos con
+prueba. Primera: aceptación/supresión fuera de tenant, propósito de permiso no
+verificado, reloj controlado por el cliente en las cotizaciones, replay de
+cotizaciones y aprobaciones que devolvía la fila vieja con otro payload,
+redirects de proveedor fuera del allowlist, timeouts que no cubrían el cuerpo
+de la respuesta, `cache-control` ausente en respuestas autenticadas, formatos
+de secreto no detectados y deriva entre los estados del dominio y los `check`
+de Postgres (`0005_domain_enums.sql`). Segunda: modo de redondeo declarado en
+el coste de modelo, dinero negativo en coste/presupuesto/forecast, atributos
+sensibles en cualquier grafía, ciclo y `bigint` en el hash estable, medianoche
+en el cálculo de offset, coste no validado en la aprobación, cursor de
+importación versionado y paridad de la guarda SSRF de discovery.
 
 El detalle, el código tocado, la prueba de cada corrección y los hallazgos
 pendientes están en [AUDIT-2026-11-18.md](AUDIT-2026-11-18.md). Nada de la
@@ -251,7 +255,7 @@ verdad. La tabla legible está en [REMAINING-STUBS.md](REMAINING-STUBS.md).
 export PATH="$HOME/.local/bin:$PATH"   # pnpm local, sin root
 pnpm install                            # EXIT=0
 pnpm run typecheck                      # EXIT=0
-pnpm run test                           # EXIT=0, 272 pruebas / 30 archivos
+pnpm run test                           # EXIT=0, 285 pruebas / 30 archivos
 ```
 
 Cualquier gate marcado IMPLEMENTED arriba tiene su archivo de prueba en
