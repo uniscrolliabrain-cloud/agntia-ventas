@@ -14,11 +14,11 @@ Historial de la rama: `9d04e72` (C01–C05) → `e57df78` (evidencia) → `73c99
 ```bash
 pnpm install            # exit 0, lockfile pnpm-lock.yaml
 pnpm run typecheck      # exit 0 (contracts, domain, identity, sales, persistence, api)
-pnpm run test           # exit 0, 249 tests / 29 archivos
+pnpm run test           # exit 0, 255 tests / 30 archivos
 ```
 
 Conteo por paquete: contracts 12, domain 13, identity 28, sales 124,
-persistence 30, api 42. Reejecutado el 2026-11-18 (workspace restaurado:
+persistence 36, api 42. Reejecutado el 2026-11-18 (workspace restaurado:
 `pnpm install --frozen-lockfile` exit 0 antes de las dos comprobaciones).
 
 La primera ejecución de PGlite en un host frío tarda ~5 s en arrancar el
@@ -51,7 +51,10 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   instalada, falla cerrado con su código declarado.
   `db/migrations/0002_domain.sql` añade 10 tablas de dominio con FKs compuestas
   y RLS forzada; `0003_operations.sql` añade claves de operación y
-  `budget_reservations`.
+  `budget_reservations`; `0004_outbox.sql` añade `parent_outbox` con RLS
+  forzada y `packages/persistence/src/outbox-repository.ts` la máquina de
+  estados durable (intento condicional, ACK con referencia, timeout y
+  reconciliación). El transporte al padre sigue siendo STUB.
 - Superficie HTTP: cinco rutas preview y cinco rutas con efecto local idempotente
   (cotización y aprobación persistidas, revocación, lectura y portal firmado).
   Ninguna envía, firma, cobra ni llama a un proveedor.

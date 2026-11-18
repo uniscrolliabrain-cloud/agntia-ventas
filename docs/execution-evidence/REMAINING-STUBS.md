@@ -27,7 +27,7 @@ Ninguno cae a un camino de admin/owner/default.
 | `c33-dashboard-live-data` | C33 | datos en vivo y gráficas del dashboard | STUB | `DEPENDENCY_UNAVAILABLE` | `packages/sales/src/dashboard.ts#DASHBOARD_STATUS` | `REPORT_QUERY_STORE` |
 | `c34-portal-chat-anam` | C34 | chat del portal y presencia Anam | STUB | `NOT_IMPLEMENTED` | `packages/sales/src/adapters.ts#PORTAL` | `ANAM_API_KEY_REF`, `PORTAL_CHAT_SERVICE` |
 | `c35-sdk-publication` | C35 | publicación del SDK TypeScript | STUB | `NOT_IMPLEMENTED` | `packages/sales/src/client.ts#SalesClient` | `NPM_PUBLISH_TOKEN`, `PACKAGE_SCOPE_APPROVAL` |
-| `c36-parent-transport` | C36 | transporte y ACK al agente padre | NOT_VERIFIED | `NOT_IMPLEMENTED` | `packages/sales/src/outbox.ts#PARENT_TRANSPORT_STUB` | `HOST_BRIDGE_BASE_URL`, `HOST_BRIDGE_SIGNING_KEY_REF`, `HOST_BRIDGE_EVENT_SCHEMA_VERSION` |
+| `c36-parent-transport` | C36 | transporte y ACK al agente padre | NOT_VERIFIED | `NOT_IMPLEMENTED` | `packages/sales/src/outbox.ts#PARENT_TRANSPORT_STUB` + `packages/persistence/src/outbox-repository.ts` | `HOST_BRIDGE_BASE_URL`, `HOST_BRIDGE_SIGNING_KEY_REF`, `HOST_BRIDGE_EVENT_SCHEMA_VERSION` |
 | `c38-provider-metering` | C38 | metering de tokens del proveedor | STUB | `PROVIDER_NOT_CONFIGURED` | `packages/sales/src/costs.ts#estimateModelCost` | `METERING_PROVIDER_KEY_REF` |
 | `c40-real-network` | C40 | vertical E2E contra red y proveedores reales | STUB | `NOT_IMPLEMENTED` | `packages/sales/src/e2e.ts#runVerticalE2e` | `STAGING_TENANT`, `PROVIDER_SANDBOX_KEYS` |
 | `c41-ci-backup-observability` | C41 | CI ejecutada, backups y observabilidad | NOT_VERIFIED | `DEPENDENCY_UNAVAILABLE` | `packages/sales/src/operations.ts#OPERATIONS_STATUS` | `CI_RUNNER`, `BACKUP_TARGET`, `OTEL_ENDPOINT` |
@@ -51,8 +51,14 @@ Estas superficies no son stubs; tienen prueba y comando registrado en
   obsolescencia, previsión rotulada como «no es ingreso», tabla de conversión
   con «sin denominador» cuando el denominador es 0, CSP `default-src 'none'`
   (sin `script-src`) y `cache-control: no-store`.
-- **C36/C38 — outbox** (`outbox.ts`): alta idempotente por `operation_key`,
-  conflicto si cambia el payload, un solo intento en vuelo, techo de intentos,
-  ACK con referencia (replay idempotente, conflicto de versión, ACK sin envío
-  rechazado), timeout → `unknown` y reconciliación por búsqueda antes de
-  permitir otro intento. El transporte al padre sigue siendo stub.
+- **C36/C38 — outbox** (`outbox.ts` + `outbox-repository.ts`): alta
+  idempotente por `operation_key`, conflicto si cambia el payload, un solo
+  intento en vuelo, techo de intentos, ACK con referencia (replay idempotente,
+  conflicto de versión, ACK sin envío rechazado), timeout → `unknown` y
+  reconciliación por búsqueda antes de permitir otro intento. La máquina de
+  estados está persistida por tenant en `app.parent_outbox`
+  (`db/migrations/0004_outbox.sql`, RLS forzada) y el intento se actualiza de
+  forma condicional a los intentos leídos. Lo que sigue **stub** es el
+  transporte al padre (`createParentTransport` → `NOT_IMPLEMENTED`): no hay
+  endpoint, esquema de eventos ni ACK del padre verificados, y una entrada no
+  pasa de `sent` sin ellos.

@@ -31,9 +31,9 @@ Conteo real tras la ejecución:
 | domain | 1 | 13 |
 | identity | 3 | 28 |
 | sales | 14 | 124 |
-| persistence | 5 | 30 |
+| persistence | 6 | 36 |
 | api | 5 | 42 |
-| **total** | **29** | **249** |
+| **total** | **30** | **255** |
 
 Entorno: Node v26.13.0, pnpm 10.34.9, PGlite (PostgreSQL WASM) como motor de
 pruebas. Docker no es utilizable en este host (`permission denied` en
@@ -77,7 +77,7 @@ registrado; **PARTIAL** = parte local verificada, parte externa no;
 | C33 Reportes y dashboard | `outcomes.ts`: snapshot con `null` para dato ausente y bandera `stale`; `dashboard.ts`: renderer HTML server-side de solo lectura, escapado de todos los valores, «sin dato» para `null`, aviso de obsolescencia, previsión rotulada «no es ingreso», conversión con «sin denominador», CSP `default-src 'none'` sin `script-src` y `no-store` | PARTIAL — renderer probado; almacén de métricas y gráficas STUB | `outcomes.test.ts`, `dashboard.test.ts` |
 | C34 Portal responsive, chat y Anam | `portal.ts`: página HTML responsive de solo lectura, servida con enlace firmado (HMAC + caducidad), CSP estricta y `no-store`; sin chat ni presencia | PARTIAL — chat/Anam no; enlace real no probado en navegador | `portal.test.ts` |
 | C35 SDK TypeScript, Hono y tools | `client.ts`: cliente tipado sobre la API preview con validación de respuesta, timeout con reconciliación y errores del catálogo; `adapters.ts`: tools del modelo sin aprobación | PARTIAL — paquete publicable no | `client.test.ts`, `adapters.test.ts` |
-| C36 Bridge de agente y eventos | `bridge.ts`: envelope de evento validado (tipo cerrado, tenant, operación, fecha) con rechazo de campos internos (`prompt`, tokens, notas); `outbox.ts`: alta idempotente por `operation_key`, conflicto si cambia el payload, un solo intento en vuelo, techo de intentos, ACK con referencia (replay y conflicto de versión), timeout → `unknown` y reconciliación por búsqueda antes de reintentar; `HOST_BRIDGE` y el transporte no entregan | PARTIAL — transporte y ACK del padre `NOT_VERIFIED` (STUB declarado) | `integrations.test.ts`, `outbox.test.ts` |
+| C36 Bridge de agente y eventos | `bridge.ts`: envelope de evento validado (tipo cerrado, tenant, operación, fecha) con rechazo de campos internos (`prompt`, tokens, notas); `outbox.ts`: alta idempotente por `operation_key`, conflicto si cambia el payload, un solo intento en vuelo, techo de intentos, ACK con referencia (replay y conflicto de versión), timeout → `unknown` y reconciliación por búsqueda antes de reintentar; `outbox-repository.ts`: outbox durable por tenant en `app.parent_outbox` (clave única por tenant, intento condicional a los intentos leídos, ACK con referencia, timeout y reconciliación); `HOST_BRIDGE` y el transporte no entregan | PARTIAL — transporte y ACK del padre `NOT_VERIFIED` (STUB declarado) | `integrations.test.ts`, `outbox.test.ts`, `outbox-repository.test.ts` |
 | C37 Cooperación y handoff | `governance.ts`: FSM con ACK propio para reconocer y para completar | IMPLEMENTED | `governance.test.ts` |
 | C38 Modelos, coste y observabilidad | `governance.ts` (reserva idempotente, reconciliación, techo) + `costs.ts` (precio por millón determinista) + tabla `budget_reservations` con clave de operación | PARTIAL — sin metering del proveedor | `governance.test.ts`, `integrations.test.ts`, `commercial-repository.test.ts` |
 | C39 Privacidad y adversariales | `governance.ts` + `core.ts`: identidad/representación, plan de supresión no ejecutado, inyección de prompt | IMPLEMENTED (local) | `governance.test.ts`, `core.test.ts` |
@@ -105,6 +105,26 @@ repositorios sobre sesiones tenant-scoped:
 Verificado en `commercial-repository.test.ts` con PGlite: replay, conflicto,
 aislamiento cross-tenant en lectura, FK compuesta contra la oportunidad de otro
 tenant y revocación idempotente.
+
+`db/migrations/0004_outbox.sql` añade `app.parent_outbox`: única por
+`(tenant_id, operation_key)`, `payload_hash` sha256 obligatorio, estados
+`pending | sent | acked | failed | unknown`, `attempts`, `ack_ref`, `last_error`
+y un `check` que impide un `acked` sin referencia, con RLS habilitada y forzada.
+`packages/persistence/src/outbox-repository.ts` implementa la misma máquina de
+estados que `packages/sales/src/outbox.ts` sobre esa tabla:
+
+- el intento se actualiza de forma condicional a los `attempts` leídos, así que
+  dos workers no pueden convertir el mismo intento en entrega;
+- un ACK solo cierra una entrada `sent`/`unknown`; repetirlo con la misma
+  referencia es replay y con otra es `VERSION_CONFLICT`;
+- un timeout deja `unknown` y bloquea el reenvío hasta que la reconciliación
+  busque el evento; si no está, queda `failed` y entonces sí se permite otro
+  intento, con el mismo `operation_key`.
+
+Verificado en `outbox-repository.test.ts` (6 pruebas) con PGlite: idempotencia y
+conflicto de payload, un solo intento en vuelo, ACK replay/conflicto/sin envío,
+timeout y reconciliación en ambos sentidos, techo de intentos, aislamiento
+cross-tenant y el `check` SQL del ACK.
 
 ## Base de datos
 
@@ -216,7 +236,7 @@ verdad. La tabla legible está en [REMAINING-STUBS.md](REMAINING-STUBS.md).
 export PATH="$HOME/.local/bin:$PATH"   # pnpm local, sin root
 pnpm install                            # EXIT=0
 pnpm run typecheck                      # EXIT=0
-pnpm run test                           # EXIT=0, 249 pruebas / 29 archivos
+pnpm run test                           # EXIT=0, 255 pruebas / 30 archivos
 ```
 
 Cualquier gate marcado IMPLEMENTED arriba tiene su archivo de prueba en

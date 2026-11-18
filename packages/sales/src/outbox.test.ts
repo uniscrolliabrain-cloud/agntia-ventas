@@ -217,6 +217,6 @@ describe("parent transport stub", () => {
   it("fails closed with NOT_IMPLEMENTED and declares what it needs", async () => {
     expect(await asyncCodeOf(createParentTransport().send(enqueued()))).toBe("NOT_IMPLEMENTED");
     expect(OUTBOX_STATUS.transport).toBe("STUB");
-    expect(OUTBOX_STATUS.store).toBe("IN_MEMORY_ONLY");
+    expect(OUTBOX_STATUS.store).toBe("POSTGRES_TENANT_SCOPED");
   });
 });

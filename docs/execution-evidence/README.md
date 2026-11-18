@@ -34,7 +34,7 @@ exit code, conteo de tests, gates, bloqueos y siguiente dependencia.
 ```bash
 pnpm install
 pnpm run typecheck     # tsc --noEmit en contracts, domain, identity, sales, persistence y api
-pnpm run test          # vitest en los seis paquetes (249 pruebas / 29 archivos)
+pnpm run test          # vitest en los seis paquetes (255 pruebas / 30 archivos)
 pnpm run dev           # API Hono en :8787 (falla cerrado sin SUPABASE_*)
 ```
 

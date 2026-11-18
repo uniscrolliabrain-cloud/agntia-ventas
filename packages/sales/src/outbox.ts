@@ -268,7 +268,8 @@ export function createParentTransport(): ParentTransport {
 }
 
 export const OUTBOX_STATUS = {
-  store: "IN_MEMORY_ONLY",
+  store: "POSTGRES_TENANT_SCOPED",
+  storeRef: "packages/persistence/src/outbox-repository.ts",
   transport: "STUB",
   reconciliation: "implemented",
 } as const;

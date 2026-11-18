@@ -1,6 +1,7 @@
 export * from "./commercial-repository.ts";
 export * from "./membership-repository.ts";
 export * from "./migrate.ts";
+export * from "./outbox-repository.ts";
 export * from "./pg.ts";
 export * from "./pglite.ts";
 export * from "./tenant-session.ts";

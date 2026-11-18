@@ -24,6 +24,7 @@ grant select, insert, update on app.budget_reservations to app_user;
 grant select, insert, update on app.approvals to app_user;
 grant select on app.approvals to app_worker;
 grant select, insert, update on app.handoffs to app_user, app_worker;
+grant select, insert, update on app.parent_outbox to app_user;
 
 -- El rol de API no puede crear ni alterar objetos del esquema.
 revoke create on schema app from app_user, app_worker;
