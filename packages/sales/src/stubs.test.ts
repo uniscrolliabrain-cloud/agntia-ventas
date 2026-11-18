@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ServiceError, ERROR_CODES } from "@agntia-ventas/contracts";
 import {
@@ -34,6 +36,21 @@ describe("declared stubs", () => {
       expect(coverage.campaigns).toContain(campaign);
     }
     expect(coverage.byStatus.stub + coverage.byStatus.not_verified).toBe(coverage.total);
+  });
+
+  it("points every codeRef at a file and symbol that exist", () => {
+    // A stub whose evidence link names a removed function claims a fail-closed
+    // path nobody can read; five refs had drifted from the real exports.
+    const root = new URL("../../../", import.meta.url);
+    for (const stub of CAPABILITY_STUBS) {
+      const [path, symbol] = stub.codeRef.split("#") as [string, string | undefined];
+      const source = readFileSync(fileURLToPath(new URL(path, root)), "utf8");
+      if (symbol) {
+        expect(source, `${stub.id} -> ${stub.codeRef}`).toMatch(
+          new RegExp(`(?:function|const|interface)\\s+${symbol}\\b`),
+        );
+      }
+    }
   });
 
   it("fails closed with the declared code and never returns", () => {
