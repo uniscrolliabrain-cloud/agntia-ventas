@@ -14,11 +14,11 @@ Historial de la rama: `9d04e72` (C01–C05) → `e57df78` (evidencia) → `73c99
 ```bash
 pnpm install            # exit 0, lockfile pnpm-lock.yaml
 pnpm run typecheck      # exit 0 (contracts, domain, identity, sales, persistence, api)
-pnpm run test           # exit 0, 288 tests / 30 archivos
+pnpm run test           # exit 0, 289 tests / 30 archivos
 ```
 
 Conteo por paquete: contracts 12, domain 14, identity 31, sales 149,
-persistence 38, api 44. Reejecutado el 2026-11-18 (workspace restaurado:
+persistence 39, api 44. Reejecutado el 2026-11-18 (workspace restaurado:
 `pnpm install --frozen-lockfile` exit 0 antes de las dos comprobaciones).
 
 La primera ejecución de PGlite en un host frío tarda ~5 s en arrancar el
@@ -56,7 +56,7 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   estados durable (intento condicional, ACK con referencia, timeout y
   reconciliación). `0005_domain_enums.sql` alinea los checks de estado con el
   dominio. El transporte al padre sigue siendo STUB.
-- Auditoría transversal del 2026-11-18: 48 defectos corregidos con prueba en
+- Auditoría transversal del 2026-11-18: 49 defectos corregidos con prueba en
   tres pasadas (aislamiento por tenant, propósito de permiso, supresión por
   dirección, reloj del servidor, idempotencia de cotizaciones/aprobaciones,
   redirects y timeouts de proveedor, `no-store`, secretos, deriva
@@ -65,8 +65,9 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   hash, medianoche en el offset, cursor versionado de importación y paridad de
   la guarda SSRF de discovery; y en la tercera: caducidad y presupuesto del
   mandato con fecha/importe ilegible, `sub` del JWT validado como id opaco y
-  `content-length` del origen comprobado antes de leer el cuerpo). Detalle y
-  pendientes en [AUDIT-2026-11-18.md](AUDIT-2026-11-18.md).
+  `content-length` del origen comprobado antes de leer el cuerpo, y advisory
+  lock en el runner de migraciones). Detalle y pendientes en
+  [AUDIT-2026-11-18.md](AUDIT-2026-11-18.md).
 - Superficie HTTP: cinco rutas preview y cinco rutas con efecto local idempotente
   (cotización y aprobación persistidas, revocación, lectura y portal firmado).
   Ninguna envía, firma, cobra ni llama a un proveedor.

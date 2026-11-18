@@ -14,6 +14,13 @@ export interface MigrationReport {
   readonly skipped: string[];
 }
 
+/**
+ * Stable key for the transaction-scoped advisory lock. Two deploy jobs that
+ * start at the same time serialize here instead of racing on the DDL and on
+ * the `schema_migrations` primary key.
+ */
+const MIGRATION_LOCK_KEY = 4711_0001;
+
 const MIGRATION_BOOTSTRAP = `
 create schema if not exists app;
 create table if not exists app.schema_migrations (
@@ -75,6 +82,26 @@ export async function runMigrations(
 
     await client.exec("begin");
     try {
+      await client.query("select pg_advisory_xact_lock($1)", [MIGRATION_LOCK_KEY]);
+      // The initial read happened before the lock: another runner may have
+      // applied this version while this one waited. Re-check inside the
+      // transaction instead of applying the same migration twice.
+      const raced = await client.query<{ checksum: string }>(
+        "select checksum from app.schema_migrations where version = $1",
+        [migration.version],
+      );
+      const winner = raced.rows[0];
+      if (winner) {
+        if (winner.checksum !== migration.checksum) {
+          throw new Error(
+            `migration ${migration.version} changed after being applied (checksum mismatch)`,
+          );
+        }
+        await client.exec("commit");
+        report.skipped.push(migration.version);
+        continue;
+      }
+
       await client.exec(migration.sql);
       await client.query(
         "insert into app.schema_migrations (version, checksum) values ($1, $2)",

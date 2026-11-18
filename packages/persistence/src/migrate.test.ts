@@ -6,6 +6,35 @@ import { PGlite } from "@electric-sql/pglite";
 import { createPgliteClient } from "./pglite.ts";
 import { runMigrations } from "./migrate.ts";
 import { MIGRATIONS_DIR } from "./test-support.ts";
+import type { SqlClient } from "./types.ts";
+
+/**
+ * Simulates a runner whose first look at `schema_migrations` happened before a
+ * concurrent runner committed: the initial list is empty, the locked re-check
+ * sees the winner.
+ */
+function staleReader(inner: SqlClient): { client: SqlClient; statements: string[] } {
+  const statements: string[] = [];
+  let firstRead = true;
+  const client: SqlClient = {
+    async query<Row = Record<string, unknown>>(
+      sql: string,
+      params?: readonly unknown[],
+    ): Promise<{ rows: Row[] }> {
+      statements.push(sql);
+      if (firstRead && sql.includes("from app.schema_migrations order by version")) {
+        firstRead = false;
+        return { rows: [] };
+      }
+      return inner.query<Row>(sql, params);
+    },
+    async exec(sql: string): Promise<void> {
+      statements.push(sql);
+      await inner.exec(sql);
+    },
+  };
+  return { client, statements };
+}
 
 describe("migration runner", () => {
   it("applies the pending migration once and records its checksum", async () => {
@@ -92,6 +121,25 @@ describe("migration runner", () => {
       "create table if not exists app.probe (id text primary key, extra text);",
     );
     await expect(runMigrations(client, directory)).rejects.toThrow(/checksum mismatch/i);
+  });
+
+  it("skips a migration another runner applied while this one waited for the lock", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "agntia-race-"));
+    await writeFile(
+      join(directory, "0001_race.sql"),
+      "create table if not exists app.race (id text primary key);",
+    );
+
+    const inner = createPgliteClient(new PGlite());
+    await runMigrations(inner, directory);
+
+    const { client, statements } = staleReader(inner);
+    const report = await runMigrations(client, directory);
+
+    // Without the locked re-check this is a primary-key violation, not a skip.
+    expect(report.applied).toEqual([]);
+    expect(report.skipped).toEqual(["0001_race"]);
+    expect(statements.some((sql) => sql.includes("pg_advisory_xact_lock"))).toBe(true);
   });
 
   it("rolls back a failing migration instead of leaving a partial schema", async () => {
