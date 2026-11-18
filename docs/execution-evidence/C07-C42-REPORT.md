@@ -19,6 +19,10 @@ pnpm run typecheck      # EXIT=0 (contracts, domain, identity, sales, persistenc
 pnpm run test           # EXIT=0
 ```
 
+Reejecutado el 2026-11-18 tras restaurar el workspace: `pnpm install
+--frozen-lockfile` EXIT=0, `pnpm run typecheck` EXIT=0 y `pnpm run test`
+EXIT=0. Nada empujado y nada desplegado.
+
 Conteo real tras la ejecución:
 
 | Paquete | Archivos | Pruebas |
@@ -26,10 +30,10 @@ Conteo real tras la ejecución:
 | contracts | 1 | 12 |
 | domain | 1 | 13 |
 | identity | 3 | 28 |
-| sales | 10 | 99 |
+| sales | 14 | 124 |
 | persistence | 5 | 30 |
 | api | 5 | 42 |
-| **total** | **25** | **224** |
+| **total** | **29** | **249** |
 
 Entorno: Node v26.13.0, pnpm 10.34.9, PGlite (PostgreSQL WASM) como motor de
 pruebas. Docker no es utilizable en este host (`permission denied` en
@@ -50,7 +54,7 @@ registrado; **PARTIAL** = parte local verificada, parte externa no;
 | C10 Candidatos y aceptación | `core.ts`: aceptación idempotente por clave de operación, permiso por canal, expiración | IMPLEMENTED | `core.test.ts` |
 | C11 Pipeline y etapas | `core.ts`: FSM de etapas con transiciones ilegales rechazadas | IMPLEMENTED | `core.test.ts` |
 | C12 Triage y cualificación | `core.ts`: hechos con `sourceRef`, propuesta del LLM, decisión determinista del core | IMPLEMENTED | `core.test.ts` |
-| C13 Fuentes y contexto de cuenta | `core.ts`: solo hechos con evidencia, guarda de inyección de prompt | PARTIAL — recuperación real de fuentes no ejecutada | `core.test.ts` |
+| C13 Fuentes y contexto de cuenta | `core.ts`: solo hechos con evidencia, guarda de inyección; `sources.ts`: recuperación https con allowlist (exacta o sufijo), sin credenciales, puerto 443, rechazo de IP/loopback/`.internal`, `redirect: "error"`, timeout con `AbortSignal`, tope de bytes, MIME permitido, texto sin `script`/`style`/comentarios, hash sha256 del cuerpo y señales de inyección etiquetadas; `qualificationFactFromSource` solo acepta un hecho que aparece literalmente en el texto | PARTIAL — recuperación local probada; API del proveedor de fuentes STUB | `core.test.ts`, `sources.test.ts` |
 | C14 Adaptador CRM Twenty | `crm.ts`: gateway HTTP real con fetch inyectado, host allowlist, secreto resuelto en servidor, timeout con reconciliación, esquema de respuesta validado, escritura con clave de idempotencia | PARTIAL — sin proveedor real | `integrations.test.ts`, `adapters.test.ts` |
 | C15 Frappe/Espo/Suite | `crm.ts` cubre la forma común de los cuatro; `adapters.ts` sigue declarando capacidad `documented` y sin escritura verificada | PARTIAL | `integrations.test.ts` |
 | C16 Import y conflictos | `operations.ts`: preview, duplicados, conflicto sobre contenido revisado, cursor sin retroceso | IMPLEMENTED | `operations.test.ts` |
@@ -70,10 +74,10 @@ registrado; **PARTIAL** = parte local verificada, parte externa no;
 | C30 Renovación y expansión | `operations.ts`: cambio de precio sin aprobación rechazado, moneda coherente | IMPLEMENTED | `operations.test.ts` |
 | C31 QA de conversación | `governance.ts`: trayectoria con paso prohibido falla aunque la respuesta final sea correcta | IMPLEMENTED | `governance.test.ts` |
 | C32 Métricas y cohortes | `outcomes.ts`: duplicados eliminados, denominador explícito, tasa en bps | IMPLEMENTED | `outcomes.test.ts` |
-| C33 Reportes y dashboard | `outcomes.ts`: snapshot con `null` para dato ausente y bandera `stale` | PARTIAL — sin UI ni infografías | `outcomes.test.ts` |
+| C33 Reportes y dashboard | `outcomes.ts`: snapshot con `null` para dato ausente y bandera `stale`; `dashboard.ts`: renderer HTML server-side de solo lectura, escapado de todos los valores, «sin dato» para `null`, aviso de obsolescencia, previsión rotulada «no es ingreso», conversión con «sin denominador», CSP `default-src 'none'` sin `script-src` y `no-store` | PARTIAL — renderer probado; almacén de métricas y gráficas STUB | `outcomes.test.ts`, `dashboard.test.ts` |
 | C34 Portal responsive, chat y Anam | `portal.ts`: página HTML responsive de solo lectura, servida con enlace firmado (HMAC + caducidad), CSP estricta y `no-store`; sin chat ni presencia | PARTIAL — chat/Anam no; enlace real no probado en navegador | `portal.test.ts` |
 | C35 SDK TypeScript, Hono y tools | `client.ts`: cliente tipado sobre la API preview con validación de respuesta, timeout con reconciliación y errores del catálogo; `adapters.ts`: tools del modelo sin aprobación | PARTIAL — paquete publicable no | `client.test.ts`, `adapters.test.ts` |
-| C36 Bridge de agente y eventos | `bridge.ts`: envelope de evento validado (tipo cerrado, tenant, operación, fecha) con rechazo de campos internos (`prompt`, tokens, notas); `HOST_BRIDGE` no entrega | PARTIAL — transporte y ACK del padre `NOT_VERIFIED` | `integrations.test.ts` |
+| C36 Bridge de agente y eventos | `bridge.ts`: envelope de evento validado (tipo cerrado, tenant, operación, fecha) con rechazo de campos internos (`prompt`, tokens, notas); `outbox.ts`: alta idempotente por `operation_key`, conflicto si cambia el payload, un solo intento en vuelo, techo de intentos, ACK con referencia (replay y conflicto de versión), timeout → `unknown` y reconciliación por búsqueda antes de reintentar; `HOST_BRIDGE` y el transporte no entregan | PARTIAL — transporte y ACK del padre `NOT_VERIFIED` (STUB declarado) | `integrations.test.ts`, `outbox.test.ts` |
 | C37 Cooperación y handoff | `governance.ts`: FSM con ACK propio para reconocer y para completar | IMPLEMENTED | `governance.test.ts` |
 | C38 Modelos, coste y observabilidad | `governance.ts` (reserva idempotente, reconciliación, techo) + `costs.ts` (precio por millón determinista) + tabla `budget_reservations` con clave de operación | PARTIAL — sin metering del proveedor | `governance.test.ts`, `integrations.test.ts`, `commercial-repository.test.ts` |
 | C39 Privacidad y adversariales | `governance.ts` + `core.ts`: identidad/representación, plan de supresión no ejecutado, inyección de prompt | IMPLEMENTED (local) | `governance.test.ts`, `core.test.ts` |
@@ -164,6 +168,14 @@ portal.
 
 ## Stubs explícitos (fallan cerrado)
 
+Cada hueco está declarado una sola vez en `packages/sales/src/stubs.ts`
+(`CAPABILITY_STUBS`): campaña, capacidad, estado (`stub` o `not_verified`),
+código de error con el que falla, archivo que lo posee y variables requeridas
+(solo nombres, nunca valores). `stubs.test.ts` comprueba que los `id` son
+únicos, que cada código pertenece al catálogo cerrado, que las campañas con
+parte externa abierta están cubiertas y que `stubCapability(id)` lanza de
+verdad. La tabla legible está en [REMAINING-STUBS.md](REMAINING-STUBS.md).
+
 | Stub | Comportamiento | Código |
 |---|---|---|
 | Proveedor CRM real | gateway HTTP implementado, sin credenciales ni vendor verificado | `PROVIDER_NOT_CONFIGURED` (503) / `NOT_IMPLEMENTED` (501) |
@@ -188,8 +200,15 @@ portal.
 - No modificó el repositorio padre, `main`, ni ramas de otros agentes.
 - No ejecutó Supabase, Docker ni Postgres servidor: la evidencia de base de datos
   es PGlite y el adaptador `pg` sigue `NOT_VERIFIED` contra un servidor real.
-- No creó interfaz de usuario (dashboard, portal, inbox) ni empaquetó un SDK
-  publicable.
+- No creó interfaz de usuario navegable (dashboard servido, portal interactivo,
+  inbox) ni empaquetó un SDK publicable: el renderer del dashboard y el HTML del
+  portal existen y están probados como funciones, no como producto visual.
+- No conectó el dashboard a un almacén de métricas ni lo publicó en una ruta:
+  los datos en vivo son STUB (`REPORT_QUERY_STORE`).
+- No llamó a ninguna API de fuentes: la recuperación de C13 usa `fetch`
+  inyectado en las pruebas y el proveedor de búsqueda es STUB.
+- No entregó ningún evento al agente padre: el outbox es determinista y el
+  transporte es STUB (`HOST_BRIDGE_NOT_VERIFIED`).
 
 ## Reproducción
 
@@ -197,7 +216,7 @@ portal.
 export PATH="$HOME/.local/bin:$PATH"   # pnpm local, sin root
 pnpm install                            # EXIT=0
 pnpm run typecheck                      # EXIT=0
-pnpm run test                           # EXIT=0, 224 pruebas / 25 archivos
+pnpm run test                           # EXIT=0, 249 pruebas / 29 archivos
 ```
 
 Cualquier gate marcado IMPLEMENTED arriba tiene su archivo de prueba en

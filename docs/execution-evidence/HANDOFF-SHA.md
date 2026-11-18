@@ -14,11 +14,12 @@ Historial de la rama: `9d04e72` (C01–C05) → `e57df78` (evidencia) → `73c99
 ```bash
 pnpm install            # exit 0, lockfile pnpm-lock.yaml
 pnpm run typecheck      # exit 0 (contracts, domain, identity, sales, persistence, api)
-pnpm run test           # exit 0, 224 tests / 25 archivos
+pnpm run test           # exit 0, 249 tests / 29 archivos
 ```
 
-Conteo por paquete: contracts 12, domain 13, identity 28, sales 99,
-persistence 30, api 42.
+Conteo por paquete: contracts 12, domain 13, identity 28, sales 124,
+persistence 30, api 42. Reejecutado el 2026-11-18 (workspace restaurado:
+`pnpm install --frozen-lockfile` exit 0 antes de las dos comprobaciones).
 
 La primera ejecución de PGlite en un host frío tarda ~5 s en arrancar el
 Postgres WASM; por eso `persistence` y `api` fijan `testTimeout: 30000` en su
@@ -43,7 +44,11 @@ ella responde 424 en rutas autenticadas. Nunca hay principal por defecto.
   (migraciones, RLS forzada, repositorio tenant-scoped, integración JWT→RLS→API).
 - Bloque C07–C42: matriz completa en [C07-C42-REPORT.md](C07-C42-REPORT.md).
   25 campañas IMPLEMENTED con pruebas, 10 PARTIAL (CRM, suites CRM, firma,
-  bridge, coste, fuentes, dashboard, SDK, CI y portal) y C42 documental.
+  bridge, coste, fuentes, dashboard, SDK, CI y portal) y C42 documental. Los
+  huecos de cada PARTIAL están declarados en `packages/sales/src/stubs.ts`
+  (`CAPABILITY_STUBS`, 16 entradas) y en
+  [REMAINING-STUBS.md](REMAINING-STUBS.md): un stub no es una capacidad
+  instalada, falla cerrado con su código declarado.
   `db/migrations/0002_domain.sql` añade 10 tablas de dominio con FKs compuestas
   y RLS forzada; `0003_operations.sql` añade claves de operación y
   `budget_reservations`.

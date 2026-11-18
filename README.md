@@ -10,11 +10,14 @@ Se presta servicio a empresas del padre y a clientes externos mediante portal pr
 
 ## Implementación en curso
 
-La rama de fábrica añade el scaffolding ejecutable de las campañas C01–C06:
-contratos Zod estrictos, verificación Supabase JWT con membership provisionada,
-mandatos/twins, dinero Decimal determinista, migraciones PostgreSQL con RLS
-forzada y una API Hono nominada que falla cerrado. Evidencia real (comandos,
-tests, gates y bloqueos) en `docs/execution-evidence/`.
+La rama de fábrica añade el scaffolding ejecutable de las campañas C01–C06 y el
+bloque comercial C07–C42: contratos Zod estrictos, verificación Supabase JWT con
+membership provisionada, mandatos/twins, dinero Decimal determinista, CPQ,
+gobierno de aprobaciones, outbox con ACK, migraciones PostgreSQL con RLS forzada
+y una API Hono nominada que falla cerrado. Lo que depende de proveedores o
+credenciales está declarado como stub en `packages/sales/src/stubs.ts`.
+Evidencia real (comandos, tests, gates y bloqueos) en
+`docs/execution-evidence/`.
 
 ```bash
 pnpm install
