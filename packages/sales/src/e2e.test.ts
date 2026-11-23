@@ -111,6 +111,7 @@ describe("synthetic pilot vertical", () => {
     expect(result.status).toBe("completed");
     expect(result.steps.map((step) => step.step)).toEqual([
       "candidates.accept",
+      "contact.email_channel",
       "candidates.outreach_permission",
       "pipeline.transition",
       "qualification.propose",
@@ -181,6 +182,26 @@ describe("synthetic pilot vertical", () => {
       status: "blocked",
       code: "VALIDATION_FAILED",
     });
+  });
+
+  it("blocks a contact without an email channel instead of inventing one", () => {
+    const result = runPilotVertical(
+      fixture({
+        contact: {
+          ...fixture().contact,
+          channels: [{ channel: "whatsapp", value: "+34600000000" }],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("blocked");
+    expect(result.steps.at(-1)).toEqual({
+      step: "contact.email_channel",
+      status: "blocked",
+      code: "VALIDATION_FAILED",
+    });
+    expect(result.draft).toBeUndefined();
+    expect(result.quote).toBeUndefined();
   });
 
   it("fails closed when the source candidate has no permission", () => {

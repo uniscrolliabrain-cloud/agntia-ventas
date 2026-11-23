@@ -200,6 +200,10 @@ export function reconcileOutboxAfterTimeout(input: {
   }
 
   if (input.lookup.found) {
+    // An ACK without a reference is not evidence: it must not close the entry.
+    if (!input.lookup.ackRef) {
+      throw new ServiceError("VALIDATION_FAILED", "reconciled ACK needs a reference");
+    }
     return {
       entry: {
         ...input.entry,

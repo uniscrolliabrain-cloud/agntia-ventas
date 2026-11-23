@@ -10,6 +10,11 @@ import type {
 
 const TERMINAL: ReadonlySet<Stage> = new Set(["won_verified", "lost", "opted_out"]);
 
+function fractionalDigits(amount: string): number {
+  const dot = amount.indexOf(".");
+  return dot === -1 ? 0 : amount.length - dot - 1;
+}
+
 /**
  * A planned call is not a call. Only a verified receipt confirms an activity;
  * a provider without confirmation stays unknown.
@@ -76,6 +81,15 @@ export function buildForecast(input: {
   }
 
   let weightedTotal = new Decimal(0);
+  // The weighted total keeps the currency's declared display scale: a fixed two
+  // decimals turned a zero-decimal currency (JPY) into cents.
+  const declaredScales = input.scenarios
+    .map((scenario) => scenario.amount.exponent)
+    .filter((exponent): exponent is number => exponent !== undefined);
+  const scale =
+    declaredScales.length > 0
+      ? Math.max(...declaredScales)
+      : Math.max(...input.scenarios.map((scenario) => fractionalDigits(scenario.amount.amount)));
   for (const scenario of input.scenarios) {
     if (scenario.amount.currency !== currency) {
       throw new ServiceError("CURRENCY_MISMATCH", "forecast mixes currencies");
@@ -122,9 +136,9 @@ export function buildForecast(input: {
     },
     gross,
     weighted: {
-      amount: weightedTotal.toFixed(2),
+      amount: weightedTotal.toFixed(scale),
       currency,
-      exponent: 2,
+      exponent: scale,
     },
     scenarios: [...input.scenarios],
     isRevenue: false,
@@ -211,6 +225,12 @@ export function buildReportSnapshot(input: {
       figures[key] = null;
       missing.push(key);
     } else {
+      // A NaN or an infinity rendered as a real figure in the dashboard.
+      if (!Number.isFinite(value)) {
+        throw new ServiceError("VALIDATION_FAILED", "report figure is not a finite number", {
+          details: { key },
+        });
+      }
       figures[key] = value;
     }
   }

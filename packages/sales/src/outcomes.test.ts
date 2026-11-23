@@ -76,6 +76,38 @@ describe("forecast", () => {
     expect(forecast.isRevenue).toBe(false);
   });
 
+  it("keeps the currency scale instead of forcing two decimals", () => {
+    const forecast = buildForecast({
+      id: "forecast-jpy",
+      probabilityVersion: "p-2026-11",
+      scenarios: [
+        {
+          stage: "qualified",
+          amount: { amount: "1000", currency: "JPY", exponent: 0 },
+          probabilityBasisPoints: 5000,
+        },
+      ],
+      accountsWithAmount: 1,
+      accountsTotal: 1,
+    });
+    expect(forecast.weighted).toEqual({ amount: "500", currency: "JPY", exponent: 0 });
+    expect(forecast.gross).toEqual({ amount: "1000", currency: "JPY", exponent: 0 });
+  });
+
+  it("refuses a report figure that is not a finite number", () => {
+    expect(
+      codeOf(() =>
+        buildReportSnapshot({
+          id: "report-nan",
+          generatedAt: "2026-11-18T09:00:00Z",
+          figures: { won: Number.NaN },
+          required: ["won"],
+          stale: false,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
+
   it("rejects out-of-range probabilities, mixed currencies and impossible coverage", () => {
     expect(
       codeOf(() =>

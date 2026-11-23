@@ -194,6 +194,17 @@ describe("delivery and acknowledgement", () => {
     expect(delivered.entry.status).toBe("acked");
     expect(delivered.retryAllowed).toBe(false);
 
+    // An ACK without a reference is not evidence.
+    expect(
+      codeOf(() =>
+        reconcileOutboxAfterTimeout({
+          entry: timedOut,
+          lookup: { found: true, ackRef: "" },
+          now,
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+
     const missing = reconcileOutboxAfterTimeout({
       entry: timedOut,
       lookup: { found: false },

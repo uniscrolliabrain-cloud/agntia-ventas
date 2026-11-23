@@ -30,7 +30,7 @@ Conteo real tras la ejecución:
 | contracts | 1 | 12 |
 | domain | 1 | 14 |
 | identity | 3 | 31 |
-| sales | 14 | 157 |
+| sales | 14 | 160 |
 | persistence | 6 | 39 |
 | api | 5 | 44 |
 | **total** | **30** | **289** |
@@ -87,7 +87,7 @@ registrado; **PARTIAL** = parte local verificada, parte externa no;
 
 ## Auditoría transversal (2026-11-18)
 
-Se revisó el árbol completo en seis pasadas y se corrigieron 59 defectos con
+Se revisó el árbol completo en siete pasadas y se corrigieron 63 defectos con
 prueba. Primera: aceptación/supresión fuera de tenant, propósito de permiso no
 verificado, reloj controlado por el cliente en las cotizaciones, replay de
 cotizaciones y aprobaciones que devolvía la fila vieja con otro payload,

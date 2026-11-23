@@ -90,6 +90,21 @@ const NO_EFFECTS = {
 } as const;
 
 /**
+ * The email channel is looked up, never assumed: the first channel of a contact
+ * may be a phone, and falling back to a literal address would put a fabricated
+ * recipient inside an approved draft.
+ */
+function emailChannelOf(contact: Contact): string {
+  const email = contact.channels.find((channel) => channel.channel === "email");
+  if (!email || email.value.trim().length === 0) {
+    throw new ServiceError("VALIDATION_FAILED", "contact has no email channel", {
+      details: { contactId: contact.id },
+    });
+  }
+  return email.value;
+}
+
+/**
  * Synthetic vertical: candidate -> acceptance -> opportunity -> quote -> review
  * -> sink -> receipt -> meeting -> handoff with ACK. Every step is local; the
  * effects counters stay at zero by construction and any block stops the run.
@@ -135,6 +150,12 @@ export function runPilotVertical(fixture: PilotFixture): PilotResult {
   });
   if (!accepted) return { status: "blocked", steps, effects: NO_EFFECTS };
 
+  let recipient = "";
+  const channel = run("contact.email_channel", () => {
+    recipient = emailChannelOf(fixture.contact);
+  });
+  if (!channel) return { status: "blocked", steps, effects: NO_EFFECTS };
+
   const outreach = canRequestOutreach({
     candidate: fixture.candidate,
     accepted: acceptedLead
@@ -143,7 +164,7 @@ export function runPilotVertical(fixture: PilotFixture): PilotResult {
     suppressions: fixture.suppressions,
     channel: "email",
     purpose: "pilot outreach",
-    recipient: fixture.contact.channels[0]?.value ?? "contact@example.test",
+    recipient,
     now: fixture.now,
   });
   steps.push({
@@ -222,7 +243,7 @@ export function runPilotVertical(fixture: PilotFixture): PilotResult {
       resourceVersion: 1,
       rightsHash: "sha256:rights",
       policyHash: "sha256:policy",
-      recipient: fixture.contact.channels[0]?.value ?? "contact@example.test",
+      recipient,
       channel: "email",
       costCeiling: { amount: "300.00", currency: quoteTotals.currency },
       expiresAt: "2027-01-01T00:00:00Z",
@@ -234,7 +255,7 @@ export function runPilotVertical(fixture: PilotFixture): PilotResult {
       resourceVersion: 1,
       rightsHash: "sha256:rights",
       policyHash: "sha256:policy",
-      recipient: fixture.contact.channels[0]?.value ?? "contact@example.test",
+      recipient,
       channel: "email",
       cost: quoteTotals.total,
       now: fixture.now,
@@ -246,7 +267,7 @@ export function runPilotVertical(fixture: PilotFixture): PilotResult {
 
   const preview = run("email.preview", () => {
     const plan = createEmailPreview({
-      recipient: fixture.contact.channels[0]?.value ?? "contact@example.test",
+      recipient,
       subject: "Propuesta sintética",
       body: "Adjuntamos la propuesta calculada. Sin efecto externo en el piloto.",
       purpose: "pilot proposal",
