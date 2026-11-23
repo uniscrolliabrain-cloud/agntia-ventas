@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { ErrorEnvelopeSchema, ServiceError } from "@agntia-ventas/contracts";
+import {
+  AmountSchema,
+  CurrencySchema,
+  ErrorEnvelopeSchema,
+  ServiceError,
+} from "@agntia-ventas/contracts";
 import type { FetchLike } from "./crm.ts";
 
 const QuoteResponseSchema = z
@@ -8,8 +13,11 @@ const QuoteResponseSchema = z
       .object({
         totals: z
           .object({
-            currency: z.string().length(3),
-            total: z.object({ amount: z.string(), currency: z.string().length(3) }).loose(),
+            currency: CurrencySchema,
+            // A total is money: a plain string let "cuarenta" through as a total.
+            total: z
+              .object({ amount: AmountSchema, currency: CurrencySchema })
+              .loose(),
           })
           .loose(),
         externalEffect: z.literal(false),
@@ -39,7 +47,12 @@ export interface SalesApiClient {
  * operation before sending it again.
  */
 export function createSalesApiClient(config: SalesApiClientConfig): SalesApiClient {
-  const base = new URL(config.baseUrl);
+  let base: URL;
+  try {
+    base = new URL(config.baseUrl);
+  } catch {
+    throw new ServiceError("VALIDATION_FAILED", "client baseUrl is not a valid URL");
+  }
   // The bearer token must never travel in clear text or to an odd scheme.
   if (base.protocol !== "https:") {
     throw new ServiceError("VALIDATION_FAILED", "client baseUrl must use https");

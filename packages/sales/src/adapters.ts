@@ -28,12 +28,20 @@ export function createCapabilityReport(input: {
   evidenceRefs?: readonly string[];
 }): CapabilityReport {
   const evidenceRefs = input.evidenceRefs ?? [];
-  if (input.status === "verified_runtime" && evidenceRefs.length === 0) {
+  // A blank reference is not evidence: `[""]` used to satisfy the gate.
+  const usableRefs = evidenceRefs.filter((ref) => ref.trim().length > 0);
+  if (input.status === "verified_runtime" && usableRefs.length === 0) {
     throw new ServiceError(
       "VALIDATION_FAILED",
       "verified_runtime capability report needs evidence",
       { details: { provider: input.provider } },
     );
+  }
+  // "When was this verified" must be readable or the report proves nothing.
+  if (!Number.isFinite(Date.parse(input.checkedAt))) {
+    throw new ServiceError("VALIDATION_FAILED", "capability check time is unreadable", {
+      details: { provider: input.provider, checkedAt: input.checkedAt },
+    });
   }
   return {
     provider: input.provider,

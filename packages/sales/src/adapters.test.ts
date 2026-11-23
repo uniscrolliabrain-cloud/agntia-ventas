@@ -44,6 +44,30 @@ describe("capability reports", () => {
     ).toBe("VALIDATION_FAILED");
   });
 
+  it("refuses blank evidence and an unreadable check time", () => {
+    expect(
+      codeOf(() =>
+        createCapabilityReport({
+          provider: "twenty",
+          kind: "crm",
+          status: "verified_runtime",
+          checkedAt: "2026-11-15T00:00:00Z",
+          evidenceRefs: ["   "],
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+    expect(
+      codeOf(() =>
+        createCapabilityReport({
+          provider: "twenty",
+          kind: "crm",
+          status: "documented",
+          checkedAt: "ayer",
+        }),
+      ),
+    ).toBe("VALIDATION_FAILED");
+  });
+
   it("keeps unknown capabilities disabled", () => {
     const report = createCapabilityReport({
       provider: "espocrm",

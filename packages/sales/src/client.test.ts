@@ -42,6 +42,27 @@ describe("sales api client", () => {
     ).toThrow(/https/);
   });
 
+  it("refuses a total that is not exact money and an unreadable base URL", async () => {
+    const client = createSalesApiClient({
+      ...config,
+      fetchImpl: respond({
+        data: {
+          totals: { currency: "EUR", total: { amount: "cuarenta", currency: "EUR" } },
+          externalEffect: false,
+        },
+        correlationId: "corr-01",
+      }),
+    });
+    await expect(client.quotePreview({})).rejects.toMatchObject({
+      code: "PROVIDER_INVALID_RESPONSE",
+    });
+
+    // A malformed base URL used to escape as a TypeError instead of a contract error.
+    expect(() =>
+      createSalesApiClient({ ...config, baseUrl: "api.sales.test", fetchImpl: respond(quoteResponse) }),
+    ).toThrow(ServiceError);
+  });
+
   it("surfaces the server error code instead of a generic failure", async () => {
     const client = createSalesApiClient({
       ...config,
